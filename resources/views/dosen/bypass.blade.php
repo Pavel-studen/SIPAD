@@ -9,28 +9,21 @@
 </head>
 <body class="bg-gray-50 text-neutral-900" style="font-family: 'Montserrat', sans-serif;">
     
-    <!-- Latar Navbar / Header -->
     <header class="bg-[#308242] w-full h-[92px] flex items-center justify-between px-8 shadow-sm">
         <div class="text-white font-bold text-2xl">SIPAD</div>
         <div class="flex items-center gap-4">
-            <div class="text-white text-right font-medium text-[16px]">
-                Ir. Dinar Nugroho Pratomo, S.Kom., M.IM., M.Cs.
-            </div>
-            <!-- Identitas Akun -->
+            <div class="text-white text-right font-medium text-[16px]">Ir. Dinar Nugroho Pratomo, S.Kom., M.IM., M.Cs.</div>
+
             <div class="w-[50px] h-[50px] bg-white rounded-full flex items-center justify-center overflow-hidden">
                 <span class="text-[#308242] font-bold">D</span>
             </div>
         </div>
     </header>
 
-    <!-- Main Content Area -->
     <main class="w-full max-w-5xl mx-auto px-4 py-8 bg-white mt-6 rounded-lg shadow-sm border border-gray-200">
         
-        <!-- Form Daftarkan Tim -->
         <section class="mb-12">
-            <h2 class="text-[#486284] text-sm font-bold mb-6 uppercase tracking-wide">
-                Daftarkan Tim Gemastik/LIDM (Bypass Matching Engine)
-            </h2>
+            <h2 class="text-[#486284] text-sm font-bold mb-6 uppercase tracking-wide">Daftarkan Tim Gemastik/LIDM (Bypass Matching Engine)</h2>
             
             <div class="space-y-4">
                 <div class="flex gap-4">
@@ -50,13 +43,10 @@
                     <label class="block text-xs font-semibold text-gray-500 mb-1">Anggota Terikat</label>
                     <div class="flex gap-4">
                         <input type="text" placeholder="Typing NIM / Nama Mahasiswa..." class="flex-1 border border-gray-300 rounded-md px-4 py-2 text-sm focus:ring-[#308242] focus:border-[#308242]">
-                        <button class="bg-[#308242] text-white px-6 py-2 rounded-md text-sm font-semibold hover:bg-green-700 transition">
-                            + Tambah Anggota
-                        </button>
+                        <button class="bg-[#308242] text-white px-6 py-2 rounded-md text-sm font-semibold hover:bg-green-700 transition">+ Tambah Anggota</button>
                     </div>
                 </div>
                 
-                <!-- Daftar Anggota Ditambahkan -->
                 <div class="space-y-2 mt-4">
                     <div class="flex justify-between items-center bg-[#D4F1DF] text-[#308242] px-4 py-2 rounded-md text-sm font-medium border border-green-200">
                         <span>2201923 | Budi Santoso (UI/UX)</span>
@@ -68,24 +58,17 @@
                     </div>
                 </div>
                 
-                <!-- Action Button -->
                 <div class="flex justify-center mt-8">
                     <button class="bg-[#308242] text-white px-10 py-3 rounded-md font-bold text-sm hover:bg-green-700 transition shadow-sm uppercase tracking-wide">
-                        Kunci & Simpan Tim Khusus
-                    </button>
+                        Kunci & Simpan Tim Khusus</button>
                 </div>
             </div>
         </section>
 
-        <!-- Divider -->
         <hr class="border-gray-300 border-dashed mb-8">
 
-        <!-- Tabel Daftar Tim -->
         <section class="mb-12">
-            <h2 class="text-[#486284] text-sm font-bold mb-4 uppercase tracking-wide">
-                Daftar Tim Gemastik/LIDM
-            </h2>
-            
+            <h2 class="text-[#486284] text-sm font-bold mb-4 uppercase tracking-wide">Daftar Tim Gemastik/LIDM</h2>
             <div class="overflow-x-auto border border-gray-300 rounded-lg">
                 <table class="w-full text-left border-collapse text-sm">
                     <thead class="bg-[#D4F1DF] text-[#308242]">
