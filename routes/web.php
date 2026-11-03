@@ -4,6 +4,9 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\DosenController;
 use App\Http\Controllers\MasterAdminController;
+use App\Http\Controllers\ScheduleController;
+use App\Http\Controllers\SpecialTeamController;
+use App\Http\Controllers\TeamController;
 use App\Models\StudentProfile;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -13,11 +16,20 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/master-admin', [MasterAdminController::class, 'index'])->name('master-admin.index');
-Route::get('/dosen', [DosenController::class, 'index'])->name('dosen.index');
+// Route for the master admin dashboard
+Route::get('/master-admin', [MasterAdminController::class, 'dashboard'])->name('master-admin.dashboard');
+
+// Routes for managing master admin actions
+Route::delete('/master-admin/revoke', [MasterAdminController::class, 'revoke'])->name('master-admin.revoke');
+Route::delete('/master-admin/store', [MasterAdminController::class, 'store'])->name('master-admin.store');
+
+// Routes for managing lecturer (dosen) actions
 Route::get('/dosen/control', [DosenController::class, 'control'])->name('dosen.control');
+Route::get('/team/randomize', [TeamController::class, 'randomize'])->name('team.randomize');
+Route::get('/schedule/update', [ScheduleController::class, 'updateSchedule'])->name('schedule.update');
 Route::get('/dosen/access', [DosenController::class, 'access'])->name('dosen.access');
 Route::get('/dosen/bypass', [DosenController::class, 'bypass'])->name('dosen.bypass');
+Route::get('/special-team/lock', [SpecialTeamController::class, 'lockTeam'])->name('special-team.lock');
 
 // Google OAuth callback endpoint (matches GOOGLE_REDIRECT_URI)
 Route::match(['get', 'post'], '/auth/google/callback', [AuthController::class, 'googleCallback'])
