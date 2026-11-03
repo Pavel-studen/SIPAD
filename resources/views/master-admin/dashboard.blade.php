@@ -10,9 +10,12 @@
 </head>
 <body class="bg-gray-50 text-neutral-900" style="font-family: 'Montserrat', sans-serif;" x-data="{ showModal: false, showAddModal: false, showErrorModal: false, selectedNip: '' }">
     
+    <!-- Header -->
     <header class="bg-[#308242] w-full h-[92px] flex items-center justify-between px-8 shadow-md relative z-10">
+        <!-- Logo -->
         <div class="text-white font-bold text-2xl">SIPAD</div>
         
+        <!-- Admin name -->
         <div class="flex items-center gap-4">
             <div class="text-white text-right font-Montserrat font-[18.369px] font-bold font-[700px] line-normal">AdminPAD123 (MasterAdmin)</div>
             <!-- <div class="text-white text-right font-bold text-[18px]">AdminPAD123 (MasterAdmin)</div> -->
@@ -24,6 +27,7 @@
 
     <main class="w-full max-w-6xl mx-auto px-4 py-8">
         <div class="text-center mb-10">
+            <!-- Greeting message -->
             <h1 class="text-[42px] font-bold text-[#486284] mb-2">Selamat Datang</h1>
             <p class="text-gray-500 font-medium">Dashboard Master Admin</p>
         </div>
@@ -31,10 +35,11 @@
         <div class="bg-white p-8 rounded-xl shadow-sm border border-black/10 min-h-[400px]">
             <div class="mb-6 relative">
                 <h2 class="text-[#486284] text-center text-[20px] font-bold leading-[76px] tracking-[0.5px]">Daftar Dosen Admin</h2>
+                <!-- Button for adding new admin -->
                 <button @click="showAddModal = true" class="absolute right-0 top-1/2 -translate-y-1/2 bg-[#308242] text-white px-5 py-2.5 rounded-md text-sm font-bold hover:bg-green-700 transition shadow-sm">
                     + Tambah Admin</button>
             </div>
-            
+            <!-- Table for displaying admin list -->
             <div class="overflow-hidden rounded-lg shadow-sm border border-gray-200">
                 <table class="w-full text-center border-collapse">
                     <thead class="bg-[#8DD99D]">
@@ -64,15 +69,17 @@
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0"
          x-transition:enter-end="opacity-100"
-         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave="transition ease-in duration-100"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0">
          
-        <div @click.away="showModal = false" class="bg-white w-[737px] h-[269px] rounded-lg border border-[#308242] shadow-2xl p-8 flex flex-col items-center justify-between relative">
+        <div 
+            @click.away="showModal = false"
+            class="bg-white w-[737px] h-[269px] rounded-lg border border-[#308242] shadow-2xl p-8 flex flex-col items-center justify-between relative">
             
             <div class="text-center mt-2">
                 <h3 class="text-[24px] font-bold text-black mb-3">Cabut Hak Akses?</h3>
-                <p class="text-[20px] font-normal text-black leading-snug">Apakah anda yakin untuk menghilangkan hak<br>akses admin?</p>
+                <p class="text-[20px] font-normal text-black leading-snug">Apakah Anda yakin untuk menghilangkan hak<br>akses admin?</p>
             </div>
 
             <div class="flex items-center justify-center gap-6 w-full mb-2">
@@ -92,7 +99,7 @@
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0"
         x-transition:enter-end="opacity-100"
-        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave="transition ease-in duration-100"
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0"
     >
@@ -158,7 +165,7 @@
 
             <div class="text-center mb-8">
                 <h3 class="text-[28px] font-bold text-[#486284] mb-2">Data Dosen Tidak Ditemukan</h3>
-                <p class="text-[20px] font-normal text-gray-700">Cek ulang data yang anda masukan</p>
+                <p class="text-[20px] font-normal text-gray-700">Periksa ulang data yang Anda masukan</p>
             </div>
 
             <button 

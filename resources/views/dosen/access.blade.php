@@ -6,6 +6,7 @@
     <title>Manajemen Akses - PAD UI/UX</title>
     @vite('resources/css/app.css')
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="bg-gray-50 text-neutral-900" style="font-family: 'Montserrat', sans-serif;">
     
@@ -13,9 +14,9 @@
         <div class="text-white font-bold text-2xl">SIPAD</div>
         <div class="flex items-center gap-4">
             <div class="text-white text-right font-medium text-[16px]">Ir. Dinar Nugroho Pratomo, S.Kom., M.IM., M.Cs.</div>
-            <div class="w-[50px] h-[50px] bg-white rounded-full flex items-center justify-center overflow-hidden">
+            <!-- <div class="w-[50px] h-[50px] bg-white rounded-full flex items-center justify-center overflow-hidden">
                 <span class="text-[#308242] font-bold">D</span>
-            </div>
+            </div> -->
         </div>
     </header>
 
@@ -88,7 +89,7 @@
                                 <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold border border-green-200">Verified</span>
                             </td>
                             <td class="p-3 text-center">
-                                <button class="text-red-500 hover:text-red-700">🗑️</button>
+                                <button class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
                             </td>
                         </tr>
 
@@ -104,7 +105,7 @@
                                 <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold border border-green-200">Verified</span>
                             </td>
                             <td class="p-3 text-center">
-                                <button class="text-red-500 hover:text-red-700">🗑️</button>
+                                <button class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
                             </td>
                         </tr>
                     
@@ -120,7 +121,7 @@
                                 <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold border border-blue-200">Form Filled</span>
                             </td>
                             <td class="p-3 text-center">
-                                <button class="text-red-500 hover:text-red-700">🗑️</button>
+                                <button class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
                             </td>
                         </tr>
 
@@ -136,7 +137,7 @@
                                 <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-semibold border border-red-200">Not Submitted</span>
                             </td>
                             <td class="p-3 text-center">
-                                <button class="text-red-500 hover:text-red-700">🗑️</button>
+                                <button class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
                             </td>
                         </tr>
                     </tbody>

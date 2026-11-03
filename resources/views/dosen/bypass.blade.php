@@ -6,17 +6,17 @@
     <title>Pendaftaran Tim Gemastik - PAD UI/UX</title>
     @vite('resources/css/app.css')
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="bg-gray-50 text-neutral-900" style="font-family: 'Montserrat', sans-serif;">
+<body class="bg-gray-50 text-neutral-900" style="font-family: 'Montserrat', sans-serif;" x-data="{ showConfirmModal: false }">
     
     <header class="bg-[#308242] w-full h-[92px] flex items-center justify-between px-8 shadow-sm">
         <div class="text-white font-bold text-2xl">SIPAD</div>
         <div class="flex items-center gap-4">
             <div class="text-white text-right font-medium text-[16px]">Ir. Dinar Nugroho Pratomo, S.Kom., M.IM., M.Cs.</div>
-
-            <div class="w-[50px] h-[50px] bg-white rounded-full flex items-center justify-center overflow-hidden">
+            <!-- <div class="w-[50px] h-[50px] bg-white rounded-full flex items-center justify-center overflow-hidden">
                 <span class="text-[#308242] font-bold">D</span>
-            </div>
+            </div> -->
         </div>
     </header>
 
@@ -59,8 +59,10 @@
                 </div>
                 
                 <div class="flex justify-center mt-8">
-                    <button class="bg-[#308242] text-white px-10 py-3 rounded-md font-bold text-sm hover:bg-green-700 transition shadow-sm uppercase tracking-wide">
-                        Kunci & Simpan Tim Khusus</button>
+                    <button 
+                        @click="showConfirmModal = true"
+                        type="button"
+                        class="bg-[#308242] text-white px-10 py-3 rounded-md font-bold text-sm hover:bg-green-700 transition">Kunci & Simpan Tim Khusus</button>
                 </div>
             </div>
         </section>
@@ -97,13 +99,57 @@
                 </table>
             </div>
         </section>
-
         <div class="flex gap-4 mt-12 mb-8">
             <button class="flex-1 bg-[#308242] text-white font-bold py-3 rounded-md hover:bg-green-700 transition"><a href="{{ route('dosen.control') }}">Kontrol</a></button>
             <button class="flex-1 bg-[#308242] text-white font-bold py-3 rounded-md hover:bg-green-700 transition"><a href="{{ route('dosen.access') }}">User</a></button>
             <button class="flex-1 border border-[#308242] text-[#308242] font-bold py-3 rounded-md hover:bg-green-50 transition"><a href="{{ route('dosen.bypass') }}">Bypass</a></button>
         </div>
-
     </main>
+    <div
+        x-show="showConfirmModal"
+        x-cloak
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        x-transition:enter="transition ease-out duration-100"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-100"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0">
+        <div
+            @click.away="showConfirmModal = false"
+            class="bg-white w-[737px] h-[331px] rounded-[15px] border-[3.68px] border-[#308242] shadow-xl p-[48px] flex flex-col items-center justify-between">
+            <div class="text-[#308242]">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+            </div>
+            <div class="text-center">
+                <h3 class="text-[24px] font-bold text-[#486284] mb-2">Konfirmasi Kunci Tim</h3>
+                <p class="text-[18px] text-gray-600">Apakah Anda yakin ingin mengunci tim di atas?</p>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex items-center justify-center gap-6 w-full">
+                <!-- Cancel button -->
+                <button 
+                    @click="showConfirmModal = false" 
+                    type="button"
+                    class="w-[140px] h-[45px] border border-gray-400 rounded-md text-gray-700 font-bold text-[16px] hover:bg-gray-100 transition">
+                    Tidak</button>
+
+                <!-- Form Submit Action to Laravel -->
+                <form method="POST" action="{{ route('special-team.lock') }}">
+                    @csrf
+                    <!-- Give the team ID if available -->
+                    <input type="hidden" name="team_id" value="{{ $teamId ?? '' }}">
+                    
+                    <button 
+                        type="submit"
+                        class="w-[140px] h-[45px] bg-[#308242] rounded-md text-white font-bold text-[16px] hover:bg-green-800 transition shadow-sm">
+                        Iya</button>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
