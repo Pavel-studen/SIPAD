@@ -186,6 +186,16 @@ class UserManagementWhitelistTest extends TestCase
             'nim' => '24/533333/SV/25000',
             'is_bypass' => 0,
         ]);
+
+        // Reject invalid NIM format
+        $invalidNimResponse = $this->postJson('/api/users/whitelist', [
+            'email' => 'invalid_nim@mail.ugm.ac.id',
+            'user_role' => 'mahasiswa',
+            'nim' => '24-533333-SV-25000',
+        ]);
+
+        $invalidNimResponse->assertStatus(422)
+            ->assertJsonValidationErrors(['nim']);
     }
 
     /**
@@ -199,7 +209,8 @@ class UserManagementWhitelistTest extends TestCase
         $csvContent = "email,nim,name\n"
             ."krs1@mail.ugm.ac.id,23/500001/SV/10001,KRS Student One\n"
             ."krs2@mail.ugm.ac.id,23/500002/SV/10002,KRS Student Two\n"
-            ."krs3@mail.ugm.ac.id,23/500003/SV/10003,KRS Student Three\n";
+            ."krs3@mail.ugm.ac.id,23/500003/SV/10003,KRS Student Three\n"
+            ."krs_bad_nim@mail.ugm.ac.id,INVALID-NIM,KRS Bad NIM\n";
 
         $file = UploadedFile::fake()->createWithContent('daftar_krs.csv', $csvContent);
 
@@ -211,11 +222,13 @@ class UserManagementWhitelistTest extends TestCase
             ->assertJson([
                 'status' => 'success',
                 'total_imported' => 3,
-            ]);
+            ])
+            ->assertJsonCount(1, 'errors');
 
         $this->assertDatabaseHas('users', ['email' => 'krs1@mail.ugm.ac.id', 'user_role' => 'student']);
         $this->assertDatabaseHas('users', ['email' => 'krs2@mail.ugm.ac.id', 'user_role' => 'student']);
         $this->assertDatabaseHas('users', ['email' => 'krs3@mail.ugm.ac.id', 'user_role' => 'student']);
+        $this->assertDatabaseMissing('users', ['email' => 'krs_bad_nim@mail.ugm.ac.id']);
 
         $this->assertDatabaseHas('student_profiles', ['nim' => '23/500001/SV/10001', 'is_bypass' => 0]);
         $this->assertDatabaseHas('student_profiles', ['nim' => '23/500002/SV/10002', 'is_bypass' => 0]);

@@ -78,6 +78,7 @@ class EvaluationManagementTest extends TestCase
         $this->patchJson("/api/evaluations/{$student->id}/override", ['final_role_id' => 1])->assertStatus(403);
         $this->postJson("/api/evaluations/{$student->id}/reset")->assertStatus(403);
         $this->postJson('/api/evaluations/lock-all')->assertStatus(403);
+        $this->postJson('/api/evaluations/unlock-all')->assertStatus(403);
     }
 
     /**
@@ -535,14 +536,30 @@ class EvaluationManagementTest extends TestCase
     }
 
     /**
-     * Test /api/v1/evaluations versioned route aliases.
+     * Test /api/v1/evaluations versioned route aliases and unlock-all endpoint.
      */
     public function test_v1_versioned_routes(): void
     {
         $lecturer = User::factory()->lecturer()->create();
+        $student = User::factory()->student()->create();
+        StudentRoleEvaluation::create([
+            'user_id' => $student->id,
+            'is_locked' => true,
+        ]);
+
         Sanctum::actingAs($lecturer);
 
         $this->getJson('/api/v1/evaluations')->assertStatus(200);
+        $this->postJson('/api/v1/evaluations/unlock-all')
+            ->assertStatus(200)
+            ->assertJson([
+                'status' => 'success',
+                'message' => 'Seluruh evaluasi peran mahasiswa berhasil dibuka kuncinya.',
+                'data' => [
+                    'affected_rows' => 1,
+                    'is_locked' => false,
+                ],
+            ]);
         $this->postJson('/api/v1/evaluations/lock-all')->assertStatus(200);
     }
 }
