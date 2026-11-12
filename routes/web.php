@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\DosenController;
+use App\Http\Controllers\MahasiswaController;
 use App\Http\Controllers\MasterAdminController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SpecialTeamController;
@@ -12,9 +13,12 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// Route::get('/', function () {
+//     return view('welcome');
+// });
+
+// Route for the student (mahasiswa) dashboard
+Route::get('/mahasiswa', [MahasiswaController::class, 'dashboard'])->name('mahasiswa.dashboard');
 
 // Route for the master admin dashboard
 Route::get('/master-admin', [MasterAdminController::class, 'dashboard'])->name('master-admin.dashboard');
@@ -22,6 +26,9 @@ Route::get('/master-admin', [MasterAdminController::class, 'dashboard'])->name('
 // Routes for managing master admin actions
 Route::delete('/master-admin/revoke', [MasterAdminController::class, 'revoke'])->name('master-admin.revoke');
 Route::delete('/master-admin/store', [MasterAdminController::class, 'store'])->name('master-admin.store');
+
+Route::delete('/master-admin/dosen/{id}', [MasterAdminController::class, 'destroyDosen'])
+    ->name('master-admin.dosen-destroy');
 
 // Routes for managing lecturer (dosen) actions
 Route::get('/dosen/control', [DosenController::class, 'control'])->name('dosen.control');

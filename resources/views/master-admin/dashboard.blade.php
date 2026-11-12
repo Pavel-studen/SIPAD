@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Admin - PAD UI/UX</title>
+    <title>Master Admin - SIPAD</title>
     @vite('resources/css/app.css')
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -44,18 +44,23 @@
                 <table class="w-full text-center border-collapse">
                     <thead class="bg-[#8DD99D]">
                         <tr class="h-[89px] text-gray-900">
-                            <th class="p-4 font-bold align-middle">NIP</th>
+                            <!-- <th class="p-4 font-bold align-middle">NIP</th> -->
                             <th class="p-4 font-bold align-middle">Nama</th>
                             <th class="p-4 font-bold align-middle">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr class="border-b border-gray-200 hover:bg-gray-50 h-[70px]">
-                            <td class="p-4 text-black-700 font-medium">568209</td>
+                            <!-- <td class="p-4 text-black-700 font-medium">568209</td> -->
                             <td class="p-4 text-black-700 font-medium">Ir. Dinar Nugroho Pratomo, S.Kom., M.IM., M.Cs.</td>
                             <td class="p-4 text-gray-700 font-medium">
-                                <!-- <button class="text-blue-600 hover:underline mx-1">Edit</button> -->
-                                <button @click="showModal = true" class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
+                                <form action="{{ route('master-admin.dosen.destroy', $dosen->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data dosen ini?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        Hapus
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     </tbody>

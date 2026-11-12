@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-// use App\Models\Team;
 // use App\Models\Mahasiswa;
+// use App\Models\Team;
+use App\Models\User;
+use Illuminate\Http\Request;
 
 class DosenController extends Controller
 {

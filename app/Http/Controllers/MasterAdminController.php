@@ -2,21 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class MasterAdminController extends Controller
 {
-    public function dashboard()
+    public function destroyDosen($id)
     {
-        return view('master-admin.dashboard');
-    }
+        // Find user data based ID
+        $dosen = User::findOrFail($id);
 
-    public function revoke(Request $request)
-    {
-        $request->validate([
-            'nip' => 'required|string',
-        ]);
-        $nip = $request->input('nip');
-        return redirect()->back()->with('success', "Hak akses untuk NIP $nip berhasil dicabut.");
+        // Validate that the user has lecturer (Dosen) role
+        if ($dosen->role !== UserRole::DOSEN){
+            return redirect()->back()->with('error', 'Data yang dipilih bukan merupakan akun Dosen.');
+        }
+
+        // Erase lecturer (dosen) data
+        $dosen->delete();
+        return redirect()->back()->with('success', 'Data dosen berhasil dihapus.');
     }
 }
