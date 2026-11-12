@@ -450,7 +450,7 @@ class StudentProfilingTest extends TestCase
     }
 
     /**
-     * Test routes accessible via /api/v1/ prefix.
+     * Test routes accessible via /api/v1/ prefix and teammates endpoint.
      */
     public function test_v1_versioned_routes(): void
     {
@@ -459,5 +459,81 @@ class StudentProfilingTest extends TestCase
 
         $this->getJson('/api/v1/student/profiling-config')->assertStatus(200);
         $this->getJson('/api/v1/student/my-team')->assertStatus(200);
+        $this->getJson('/api/v1/student/teammates')->assertStatus(422);
+    }
+
+    /**
+     * Test POST /api/student/profile rejects invalid NIM format.
+     */
+    public function test_store_profile_rejects_invalid_nim_format(): void
+    {
+        $student = User::factory()->student()->create();
+        Sanctum::actingAs($student);
+
+        $rolePm = Role::where('code', 'PM')->firstOrFail();
+
+        $response = $this->postJson('/api/student/profile', [
+            'nim' => '21-473829-SV-19283',
+            'role_1_id' => $rolePm->id,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['nim']);
+    }
+
+    /**
+     * Test GET /api/v1/student/teammates and /api/v1/complaints/teammates return fellow team members excluding self.
+     */
+    public function test_get_teammates_returns_fellow_team_members_excluding_self(): void
+    {
+        $team = Team::create(['team_type' => 'internal', 'is_locked' => false]);
+        $rolePm = Role::where('code', 'PM')->firstOrFail();
+        $roleFe = Role::where('code', 'FE')->firstOrFail();
+
+        $student1 = User::factory()->student()->create(['name' => 'Ahmad Faiz', 'email' => 'ahmad@mail.ugm.ac.id']);
+        StudentProfile::create([
+            'user_id' => $student1->id,
+            'nim' => '21/473829/SV/19283',
+            'team_id' => $team->id,
+            'role_1_id' => $rolePm->id,
+        ]);
+
+        $student2 = User::factory()->student()->create(['name' => 'Siti Nurhaliza', 'email' => 'siti@mail.ugm.ac.id']);
+        StudentProfile::create([
+            'user_id' => $student2->id,
+            'nim' => '21/473830/SV/19284',
+            'team_id' => $team->id,
+            'role_1_id' => $roleFe->id,
+        ]);
+
+        Sanctum::actingAs($student1);
+
+        $response = $this->getJson('/api/v1/student/teammates');
+        $response->assertStatus(200)
+            ->assertJson([
+                'status' => 'success',
+                'data' => [
+                    'team_id' => $team->id,
+                    'team_type' => 'internal',
+                    'teammates' => [
+                        [
+                            'user_id' => $student2->id,
+                            'name' => 'Siti Nurhaliza',
+                            'email' => 'siti@mail.ugm.ac.id',
+                            'nim' => '21/473830/SV/19284',
+                            'role' => [
+                                'id' => $roleFe->id,
+                                'code' => 'FE',
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertJsonCount(1, 'data.teammates');
+
+        // Also test alias /api/v1/complaints/teammates
+        $this->getJson('/api/v1/complaints/teammates')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.teammates');
     }
 }

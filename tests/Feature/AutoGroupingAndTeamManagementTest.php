@@ -357,14 +357,79 @@ class AutoGroupingAndTeamManagementTest extends TestCase
     }
 
     /**
-     * Test versioned routes (/api/v1/teams/...).
+     * Test versioned routes (/api/v1/teams/...), assistants endpoint, overridden priority, and dev seed endpoint.
      */
     public function test_v1_versioned_routes(): void
     {
         $lecturer = User::factory()->lecturer()->create();
+        $asprak = User::factory()->assistant()->create(['name' => 'Asprak Aktif', 'status' => 'active']);
+        Team::create(['team_type' => 'internal', 'supervisor' => $asprak->id]);
+
         Sanctum::actingAs($lecturer);
 
         $this->getJson('/api/v1/teams')->assertStatus(200);
+        $this->getJson('/api/v1/teams/assistants')
+            ->assertStatus(200)
+            ->assertJson([
+                'status' => 'success',
+                'data' => [
+                    [
+                        'id' => $asprak->id,
+                        'name' => 'Asprak Aktif',
+                        'supervised_teams_count' => 1,
+                    ],
+                ],
+            ]);
+        $this->getJson('/api/v1/assistants')->assertStatus(200);
         $this->postJson('/api/v1/teams/reset-grouping')->assertStatus(200);
+    }
+
+    /**
+     * Test auto-group prioritizes overridden students ahead of non-overridden students.
+     */
+    public function test_auto_group_prioritizes_overridden_students(): void
+    {
+        $lecturer = User::factory()->lecturer()->create();
+        Sanctum::actingAs($lecturer);
+
+        // Create 3 regular PMs and 1 overridden PM, with only 1 UIUX, 1 FE, 1 BE (so only 1 team is formed)
+        $this->createStudentWithRole('PM', '21/100001/SV/00001');
+        $this->createStudentWithRole('PM', '21/100002/SV/00002');
+        $this->createStudentWithRole('PM', '21/100003/SV/00003');
+        $overriddenPm = $this->createStudentWithRole('PM', '21/100004/SV/00004');
+        StudentRoleEvaluation::where('user_id', $overriddenPm->id)->update(['is_overridden' => true]);
+
+        $this->createStudentWithRole('UIUX', '21/200001/SV/00001');
+        $this->createStudentWithRole('FE', '21/300001/SV/00001');
+        $this->createStudentWithRole('BE', '21/400001/SV/00001');
+
+        $response = $this->postJson('/api/v1/teams/auto-group');
+        $response->assertStatus(200)
+            ->assertJson([
+                'data' => [
+                    'teams_created_count' => 1,
+                    'students_grouped_count' => 4,
+                    'remaining_students_count' => 3,
+                ],
+            ]);
+
+        // Overridden PM must be assigned to the formed team
+        $this->assertNotNull($overriddenPm->fresh()->studentProfile->team_id);
+    }
+
+    /**
+     * Test dev sample data seeder endpoint.
+     */
+    public function test_dev_seed_sample_data_endpoint(): void
+    {
+        $response = $this->postJson('/dev/seed-sample-data');
+        $response->assertStatus(200)
+            ->assertJson([
+                'status' => 'success',
+            ]);
+
+        $this->assertDatabaseHas('users', ['email' => 'dosen.pengampu@mail.ugm.ac.id']);
+        $this->assertDatabaseHas('users', ['email' => 'asisten.lab@mail.ugm.ac.id']);
+        $this->assertDatabaseHas('users', ['email' => 'praktisi.industri@mail.ugm.ac.id']);
     }
 }

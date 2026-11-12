@@ -434,6 +434,17 @@ class EvaluationController extends Controller
     }
 
     /**
+     * Unlock all student role evaluations (Dosen).
+     * UPDATE student_role_evaluations SET is_locked = false.
+     */
+    public function unlockAll(Request $request): JsonResponse
+    {
+        $request->merge(['is_locked' => false]);
+
+        return $this->lockAll($request);
+    }
+
+    /**
      * Format a single student user record into an evaluation row array.
      *
      * @return array<string, mixed>

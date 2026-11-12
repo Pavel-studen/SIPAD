@@ -9,6 +9,7 @@ use App\Imports\KrsWhitelistImport;
 use App\Models\StudentProfile;
 use App\Models\StudentRoleEvaluation;
 use App\Models\User;
+use App\Rules\NimFormat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -167,7 +168,18 @@ class UserController extends Controller
         };
 
         if ($request->has('users') || $request->has('whitelist') || $request->has('stakeholders')) {
-            $inputList = (array) ($request->input('users') ?? $request->input('whitelist') ?? $request->input('stakeholders'));
+            $listKey = $request->has('users') ? 'users' : ($request->has('whitelist') ? 'whitelist' : 'stakeholders');
+            $request->validate([
+                $listKey => ['required', 'array', 'min:1'],
+                "{$listKey}.*.email" => ['required', 'email', 'max:128'],
+                "{$listKey}.*.user_role" => ['nullable', $roleValidator],
+                "{$listKey}.*.role" => ['nullable', $roleValidator],
+                "{$listKey}.*.name" => ['nullable', 'string', 'max:128'],
+                "{$listKey}.*.nim" => ['nullable', 'string', 'max:50', new NimFormat],
+                "{$listKey}.*.is_bypass" => ['nullable', 'boolean'],
+            ]);
+
+            $inputList = (array) $request->input($listKey);
 
             $createdUsers = DB::transaction(function () use ($inputList) {
                 $results = [];
@@ -190,7 +202,7 @@ class UserController extends Controller
             'user_role' => ['nullable', $roleValidator],
             'role' => ['nullable', $roleValidator],
             'name' => ['nullable', 'string', 'max:128'],
-            'nim' => ['nullable', 'string', 'max:50'],
+            'nim' => ['nullable', 'string', 'max:50', new NimFormat],
             'is_bypass' => ['nullable', 'boolean'],
         ]);
 

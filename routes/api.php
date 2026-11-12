@@ -95,12 +95,15 @@ $registerRoutes = function () {
 
         // 3. Menampilkan pengumuman posisi final, daftar anggota kelompok, pembimbing, dan proyek
         Route::get('/my-team', [StudentProfilingController::class, 'myTeam'])->name('my-team');
+
+        // 4. Mengambil daftar rekan satu tim (selain diri sendiri) untuk dropdown Kotak Pengaduan
+        Route::get('/teammates', [StudentProfilingController::class, 'teammates'])->name('teammates');
     });
 
     // E. Modul Evaluasi Skor, Override Dosen & Penguncian Role (Proses 4.0 — Fase 3)
     Route::middleware('auth:sanctum')->prefix('evaluations')->as('evaluations.')->group(function () {
         // Akses Dosen & Praktisi
-        Route::middleware('role:lecturer,practitioner')->group(function () {
+        Route::middleware('role:lecturer,practitioner,admin')->group(function () {
             // 1. Rekapitulasi seluruh mahasiswa (support search & filter)
             Route::get('/', [EvaluationController::class, 'index'])->name('index');
 
@@ -112,9 +115,12 @@ $registerRoutes = function () {
         });
 
         // Akses Khusus Dosen
-        Route::middleware('role:lecturer')->group(function () {
+        Route::middleware('role:lecturer,admin')->group(function () {
             // 6. Tombol Lock Final Roles: Mengunci seluruh evaluasi peran mahasiswa
             Route::post('/lock-all', [EvaluationController::class, 'lockAll'])->name('lock-all');
+
+            // 7. Tombol Unlock Final Roles: Membuka kunci seluruh evaluasi peran mahasiswa
+            Route::post('/unlock-all', [EvaluationController::class, 'unlockAll'])->name('unlock-all');
 
             // 4. Override final_role_id secara manual oleh dosen
             Route::patch('/{userId}/override', [EvaluationController::class, 'override'])->name('override');
@@ -141,19 +147,34 @@ $registerRoutes = function () {
             ->middleware('role:lecturer,practitioner,assistant,admin')
             ->name('index');
 
-        // 4. Menetapkan Asisten Praktikum (supervisor) ke kelompok tertentu (Dosen)
+        // 4. Mengambil daftar asisten praktikum aktif beserta jumlah tim bimbingan (Dosen)
+        Route::get('/assistants', [TeamController::class, 'assistants'])
+            ->middleware('role:lecturer,admin')
+            ->name('assistants');
+
+        // 5. Menetapkan Asisten Praktikum (supervisor) ke kelompok tertentu (Dosen)
         Route::patch('/{teamId}/supervisor', [TeamController::class, 'assignSupervisor'])
             ->middleware('role:lecturer,admin')
             ->name('supervisor.assign');
 
-        // 5. Menyimpan atau memperbarui metadata proyek pada tabel project (Dosen, Asprak)
+        // 6. Menyimpan atau memperbarui metadata proyek pada tabel project (Dosen, Asprak)
         Route::match(['post', 'put', 'patch'], '/{teamId}/project', [TeamController::class, 'storeOrUpdateProject'])
             ->middleware('role:lecturer,assistant,admin')
             ->name('project.store');
     });
 
+    // Alias daftar asisten praktikum aktif (Dosen, Master Admin)
+    Route::get('/assistants', [TeamController::class, 'assistants'])
+        ->middleware(['auth:sanctum', 'role:lecturer,admin'])
+        ->name('assistants.index');
+
     // G. Modul Kotak Pengaduan / Digital Complaint Box (Proses 6.0 — Fase 4b)
     Route::middleware('auth:sanctum')->prefix('complaints')->as('complaints.')->group(function () {
+        // Alias mengambil daftar rekan satu tim untuk dropdown pengaduan (Mahasiswa)
+        Route::get('/teammates', [StudentProfilingController::class, 'teammates'])
+            ->middleware('role:student,admin')
+            ->name('teammates');
+
         // 1. Mengirim tiket pengaduan anggota tim (Mahasiswa)
         Route::post('/', [ComplaintController::class, 'store'])
             ->middleware('role:student,admin')
@@ -186,6 +207,7 @@ $registerRoutes = function () {
     // Alias endpoints for backward compatibility with earlier tasks
     Route::post('/admin/initiate-lecturer', [UserController::class, 'initiateLecturers'])->name('admin.initiate-lecturer');
     Route::post('/initiate-lecturer', [UserController::class, 'initiateLecturers'])->name('initiate-lecturer');
+    Route::post('/stakeholders/initiate-lecturer', [UserController::class, 'initiateLecturers'])->name('stakeholders.initiate-lecturer');
 
     Route::get('/stakeholders', [UserController::class, 'index'])->name('stakeholders.index');
     Route::post('/stakeholders', [UserController::class, 'storeWhitelist'])->name('stakeholders.store');

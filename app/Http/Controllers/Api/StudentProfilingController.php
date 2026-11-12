@@ -10,6 +10,7 @@ use App\Models\Role;
 use App\Models\StudentProfile;
 use App\Models\StudentRoleEvaluation;
 use App\Models\Team;
+use App\Rules\NimFormat;
 use App\Services\ScoringEngineService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -87,7 +88,7 @@ class StudentProfilingController extends Controller
 
         // 2. Validate input fields
         $validated = $request->validate([
-            'nim' => ['required', 'string', 'max:50'],
+            'nim' => ['required', 'string', 'max:50', new NimFormat],
             'role_1_id' => ['required', 'integer', 'exists:roles,id'],
             'role_2_id' => ['nullable', 'integer', 'exists:roles,id'],
             'skill_ids' => ['nullable', 'array'],
@@ -302,6 +303,66 @@ class StudentProfilingController extends Controller
                         ];
                     }),
                 ],
+            ],
+        ]);
+    }
+
+    /**
+     * Get list of fellow teammates in the student's team (excluding the logged-in student).
+     * Used for the Digital Complaint Box reported student dropdown.
+     */
+    public function teammates(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $profile = $user->studentProfile;
+
+        if (! $profile || ! $profile->team_id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda belum terdaftar dalam kelompok sehingga belum memiliki rekan tim.',
+                'data' => [],
+            ], 422);
+        }
+
+        $team = Team::find($profile->team_id);
+
+        if (! $team) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data kelompok tidak ditemukan.',
+            ], 404);
+        }
+
+        $teammates = StudentProfile::where('team_id', $team->id)
+            ->where('user_id', '!=', $user->id)
+            ->with(['user', 'evaluation.finalRole', 'evaluation.recommendedRole', 'role1'])
+            ->get()
+            ->map(function (StudentProfile $member) {
+                $role = $member->evaluation?->finalRole
+                    ?? $member->evaluation?->recommendedRole
+                    ?? $member->role1;
+
+                return [
+                    'user_id' => $member->user_id,
+                    'name' => $member->user?->name,
+                    'email' => $member->user?->email,
+                    'nim' => $member->nim,
+                    'role' => $role ? [
+                        'id' => $role->id,
+                        'code' => $role->code,
+                        'name' => $role->name,
+                    ] : null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Daftar rekan satu tim berhasil diambil.',
+            'data' => [
+                'team_id' => $team->id,
+                'team_type' => $team->team_type,
+                'teammates' => $teammates,
             ],
         ]);
     }

@@ -9,6 +9,7 @@ use App\Models\Project;
 use App\Models\StudentProfile;
 use App\Models\Team;
 use App\Models\User;
+use App\Rules\NimFormat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -120,11 +121,11 @@ class TeamController extends Controller
             ], 422);
         }
 
-        // 5. Shuffle each array using Fisher-Yates Algorithm
-        $this->fisherYatesShuffle($arrayPm);
-        $this->fisherYatesShuffle($arrayUiux);
-        $this->fisherYatesShuffle($arrayFe);
-        $this->fisherYatesShuffle($arrayBe);
+        // 5. Prioritize overridden students first, then shuffle each sub-array using Fisher-Yates Algorithm
+        $this->prioritizeAndShuffle($arrayPm);
+        $this->prioritizeAndShuffle($arrayUiux);
+        $this->prioritizeAndShuffle($arrayFe);
+        $this->prioritizeAndShuffle($arrayBe);
 
         // 6. Persistence in Database
         $createdTeams = DB::transaction(function () use ($teamCount, $arrayPm, $arrayUiux, $arrayFe, $arrayBe) {
@@ -226,6 +227,37 @@ class TeamController extends Controller
             'data' => [
                 'reset_teams_count' => $regularTeamIds->count(),
             ],
+        ]);
+    }
+
+    /**
+     * Get list of active Lab Assistants (Asprak) with their supervised teams count.
+     */
+    public function assistants(Request $request): JsonResponse
+    {
+        $assistants = User::where('user_role', UserRole::Assistant->value)
+            ->where('status', 'active')
+            ->withCount('supervisedTeams')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        $data = $assistants->map(function (User $assistant) {
+            $roleEnum = $assistant->user_role instanceof UserRole ? $assistant->user_role : UserRole::Assistant;
+
+            return [
+                'id' => $assistant->id,
+                'name' => $assistant->name,
+                'email' => $assistant->email,
+                'role' => $roleEnum->value,
+                'role_label' => $roleEnum->label(),
+                'supervised_teams_count' => (int) $assistant->supervised_teams_count,
+            ];
+        })->values();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Daftar asisten praktikum berhasil diambil.',
+            'data' => $data,
         ]);
     }
 
@@ -387,6 +419,7 @@ class TeamController extends Controller
             'supervisor' => ['nullable', 'exists:users,id'],
             'supervisor_id' => ['nullable', 'exists:users,id'],
             'members' => ['nullable', 'array'],
+            'members.*.nim' => ['nullable', 'string', 'max:50', new NimFormat],
             'student_ids' => ['nullable', 'array'],
             'emails' => ['nullable', 'array'],
         ]);
@@ -514,6 +547,31 @@ class TeamController extends Controller
                 'members' => UserResource::collection($team->members->map->user->filter()),
             ],
         ], 201);
+    }
+
+    /**
+     * Partition students into overridden (`is_overridden = true`) and regular (`is_overridden = false`),
+     * shuffle each sub-array with Fisher-Yates, and place overridden students first.
+     *
+     * @param  list<StudentProfile>  $items
+     */
+    protected function prioritizeAndShuffle(array &$items): void
+    {
+        $overridden = [];
+        $regular = [];
+
+        foreach ($items as $student) {
+            if ((bool) ($student->evaluation?->is_overridden ?? false)) {
+                $overridden[] = $student;
+            } else {
+                $regular[] = $student;
+            }
+        }
+
+        $this->fisherYatesShuffle($overridden);
+        $this->fisherYatesShuffle($regular);
+
+        $items = array_merge($overridden, $regular);
     }
 
     /**
