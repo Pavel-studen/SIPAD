@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\UserRole;
-use App\Models\Setting;
-use App\Models\Team;
+// use App\Models\Mahasiswa;
+// use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class DosenController extends Controller
 {
+    public function index()
+    {
+        return view('dosen.index');
+    }
     public function control()
     {
         return view('dosen.control');
