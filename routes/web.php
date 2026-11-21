@@ -2,12 +2,13 @@
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\DosenController;
+use App\Http\Controllers\AssistantController;
+use App\Http\Controllers\LecturerController;
 use App\Http\Controllers\PractitionerController;
-use App\Http\Controllers\MahasiswaController;
 use App\Http\Controllers\MasterAdminController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SpecialTeamController;
+use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeamController;
 use App\Models\Complaint;
 use App\Models\Project;
@@ -19,6 +20,7 @@ use App\Models\User;
 use Database\Seeders\AppSettingSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -27,38 +29,56 @@ use Illuminate\Support\Facades\Storage;
 //     return view('welcome');
 // });
 
-// Route for the student (mahasiswa) dashboard
-Route::get('/mahasiswa', [MahasiswaController::class, 'dashboard'])->name('mahasiswa.dashboard');
+// Route for login page
+Route::view('/login', 'auth.login')->name('login');
 
-// Route for the master admin dashboard
-Route::middleware(['web'])->group(function(){
-    Route::get('/master-admin', [MasterAdminController::class, 'dashboard'])->name('master-admin.dashboard');
-    Route::post('/master-admin/store', [MasterAdminController::class, 'store'])->name('master-admin.store');
-    // Route for changing status admin to lecturer (using {id} parameter)
-    Route::delete('/master-admin/dosen/{id}', [MasterAdminController::class, 'destroy'])->name('master-admin.dosen.destroy');
+// Route for logout
+Route::post('/logout', function(Request $request){
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    return redirect('/login');
+})->name('logout');
+
+// Route for the student dashboard
+Route::middleware(['web'])->prefix('student')->name('student.')->group(function(){
+    Route::get('/dashboard', [StudentController::class, 'dashboard'])->name('dashboard');
 });
 
-// Routes for managing lecturer (dosen) actions
-Route::middleware(['web'])->prefix('dosen')->name('dosen.')->group(function(){
+Route::middleware(['web'])->group(function(){
+    // Route for the assistant dashboard
+    Route::get('/assistant', [AssistantController::class, 'dashboard'])->name('assistant.dashboard');
+    Route::get('/assistant/pengaduan/{id}', [AssistantController::class, 'detailPengaduan'])->name('assistant.pengaduan-detail');
+
+    // Route for the master admin dashboard
+    Route::get('/master-admin', [MasterAdminController::class, 'dashboard'])->name('master-admin.dashboard');
+    Route::post('/master-admin/store', [MasterAdminController::class, 'store'])->name('master-admin.store');
+
+    // Route for changing status admin to lecturer (using {id} parameter)
+    Route::delete('/master-admin/lecturer/{id}', [MasterAdminController::class, 'destroy'])->name('master-admin.lecturer.destroy');
+});
+
+// Routes for managing lecturer actions
+Route::middleware(['web'])->prefix('lecturer')->name('lecturer.')->group(function(){
     // Route for views
-    Route::get('/control', [DosenController::class, 'control'])->name('control');
-    Route::get('/access', [DosenController::class, 'access'])->name('access');
-    Route::get('/bypass', [DosenController::class, 'bypass'])->name('bypass');
+    Route::get('/control', [LecturerController::class, 'control'])->name('control');
+    Route::get('/access', [LecturerController::class, 'access'])->name('access');
+    Route::get('/bypass', [LecturerController::class, 'bypass'])->name('bypass');
 
     // Route for actions: Control page
-    Route::post('/control/edit-tanggal', [DosenController::class, 'editTanggal'])->name('editTanggal');
-    Route::post('/control/kunci-mahasiswa', [DosenController::class, 'kunciSemuaMahasiswa'])->name('kunciMahasiswa');
-    Route::post('/control/acak-tim', [DosenController::class, 'acakTimOtomatis'])->name('acakTim');
+    Route::post('/control/edit-tanggal', [LecturerController::class, 'editTanggal'])->name('editTanggal');
+    Route::post('/control/kunci-mahasiswa', [LecturerController::class, 'kunciSemuaMahasiswa'])->name('kunciMahasiswa');
+    Route::post('/control/acak-tim', [LecturerController::class, 'acakTimOtomatis'])->name('acakTim');
 
     // Route for actions: User page
-    Route::post('/access/tambah-email', [DosenController::class, 'tambahEmail'])->name('tambahEmail');
-    Route::post('/access/import-csv', [DosenController::class, 'importCSV'])->name('importCSV');
-    Route::post('/access/hapus-email/{id}', [DosenController::class, 'hapusEmail'])->name('hapusEmail');
-    Route::post('/access/simpan-proyek', [DosenController::class, 'simpanProyek'])->name('simpanProyek');
+    Route::post('/access/tambah-email', [LecturerController::class, 'tambahEmail'])->name('tambahEmail');
+    Route::post('/access/import-csv', [LecturerController::class, 'importCSV'])->name('importCSV');
+    Route::post('/access/hapus-email/{id}', [LecturerController::class, 'hapusEmail'])->name('hapusEmail');
+    Route::post('/access/simpan-proyek', [LecturerController::class, 'simpanProyek'])->name('simpanProyek');
 
     // Route for actions: Bypass page
-    Route::post('/bypass/tambah-anggota', [DosenController::class, 'tambahAnggota'])->name('tambahAnggota');
-    Route::post('/bypass/kunci-tim/{id}', [DosenController::class, 'kunciTim'])->name('kunciTim');
+    Route::post('/bypass/tambah-anggota', [LecturerController::class, 'tambahAnggota'])->name('tambahAnggota');
+    Route::post('/bypass/kunci-tim/{id}', [LecturerController::class, 'kunciTim'])->name('kunciTim');
 });
 
 Route::middleware(['web'])->prefix('practitioner')->name('practitioner.')->group(function(){

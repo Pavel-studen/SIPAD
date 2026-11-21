@@ -12,6 +12,10 @@ use Throwable;
 
 class AuthController extends Controller
 {
+    public function showLoginForm()
+    {
+        return view('auth.login');
+    }
     /**
      * Get the Google OAuth redirect URL.
      */
@@ -111,6 +115,8 @@ class AuthController extends Controller
         }
 
         $user->save();
+
+        \Illuminate\Support\Facades\Auth::login($user);
 
         // 5. Generate Personal Access Token Sanctum
         $token = $user->createToken('auth-token')->plainTextToken;

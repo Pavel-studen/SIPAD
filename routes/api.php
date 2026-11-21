@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 $registerRoutes = function () {
     // A. Modul Autentikasi & SSO UGM (Proses 1.0 & 3.0)
     Route::prefix('auth')->as('auth.')->group(function () {
-        Route::get('/google/redirect', [AuthController::class, 'googleRedirect'])->name('google.redirect');
+        Route::get('/google', [AuthController::class, 'googleRedirect'])->name('google.redirect');
         Route::match(['get', 'post'], '/google/callback', [AuthController::class, 'googleCallback'])->name('google.callback');
 
         Route::middleware('auth:sanctum')->group(function () {

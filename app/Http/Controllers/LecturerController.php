@@ -7,15 +7,15 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 
-class DosenController extends Controller
+class LecturerController extends Controller
 {
     public function index()
     {
-        return view('dosen.index');
+        return view('lecturer.index');
     }
     public function control()
     {
-        return view('dosen.control');
+        return view('lecturer.control');
     }
 
     public function access()
@@ -23,13 +23,13 @@ class DosenController extends Controller
         $stakeholders = User::whereIn('user_role', ['praktisi', 'asisten', 'mahasiswa', 'project_owner'])
                             ->orderBy('created_at', 'desc')
                             ->paginate(5);
-        return view('dosen.access', compact('stakeholders'));
+        return view('lecturer.access', compact('stakeholders'));
     }
 
     public function bypass()
     {
         $teams = Team::with('members')->orderBy('created_at', 'desc')->get();
-        return view('dosen.bypass', compact('teams'));
+        return view('lecturer.bypass', compact('teams'));
     }
 
     public function monitoring()
@@ -38,7 +38,7 @@ class DosenController extends Controller
         $createdTeam = Team::count();
         $schedule = Setting::where('key', 'deadline_date')->first();
 
-        return view('dosen.monitoring', compact('studentTotal', 'createdTeam', 'schedule'));
+        return view('lecturer.monitoring', compact('studentTotal', 'createdTeam', 'schedule'));
     }
 
     public function editTanggal(Request $request)
@@ -131,6 +131,6 @@ class DosenController extends Controller
         ]);
 
         User::whereIn('id', $request->members)->update(['team_id' => $team->id]);
-        return redirect()->route('dosen.bypass')->with('success', 'Tim berhasil dikunci.');
+        return redirect()->route('lecturer.bypass')->with('success', 'Tim berhasil dikunci.');
     }
 }
