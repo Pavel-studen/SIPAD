@@ -15,6 +15,8 @@ use App\Services\ScoringEngineService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response;
 
 class StudentProfilingController extends Controller
 {
@@ -88,6 +90,7 @@ class StudentProfilingController extends Controller
 
         // 2. Validate input fields
         $validated = $request->validate([
+            'name' => ['nullable', 'string', 'max:128'],
             'nim' => ['required', 'string', 'max:50', new NimFormat],
             'role_1_id' => ['required', 'integer', 'exists:roles,id'],
             'role_2_id' => ['nullable', 'integer', 'exists:roles,id'],
@@ -95,6 +98,7 @@ class StudentProfilingController extends Controller
             'skill_ids.*' => ['integer', 'exists:skills,id'],
             'portfolio_link' => ['nullable', 'string', 'max:500'],
         ], [
+            'name.max' => 'Nama lengkap maksimal 128 karakter.',
             'nim.required' => 'NIM mahasiswa wajib diisi.',
             'role_1_id.required' => 'Pilihan role ke-1 wajib dipilih.',
             'role_1_id.exists' => 'Pilihan role ke-1 tidak valid.',
@@ -141,6 +145,11 @@ class StudentProfilingController extends Controller
         // 5. Save profiling in transaction
         /** @var StudentProfile $profile */
         $profile = DB::transaction(function () use ($user, $validated, $role2Id) {
+            if (! empty($validated['name']) && trim((string) $validated['name']) !== '') {
+                $user->name = trim((string) $validated['name']);
+                $user->save();
+            }
+
             $profile = StudentProfile::firstOrNew(['user_id' => $user->id]);
             $profile->nim = $validated['nim'];
             $profile->role_1_id = $validated['role_1_id'];
@@ -167,6 +176,7 @@ class StudentProfilingController extends Controller
                 'profile' => [
                     'id' => $profile->id,
                     'user_id' => $profile->user_id,
+                    'name' => $user->name,
                     'nim' => $profile->nim,
                     'is_bypass' => (bool) $profile->is_bypass,
                     'role_1_id' => $profile->role_1_id,
@@ -365,5 +375,57 @@ class StudentProfilingController extends Controller
                 'teammates' => $teammates,
             ],
         ]);
+    }
+
+    /**
+     * Upload and store the student's profile avatar on the local disk.
+     */
+    public function uploadAvatar(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ], [
+            'avatar.required' => 'File foto profil wajib dipilih.',
+            'avatar.image' => 'File yang diunggah harus berupa gambar.',
+            'avatar.mimes' => 'Format foto profil harus JPG, JPEG, PNG, atau WEBP.',
+            'avatar.max' => 'Ukuran foto profil maksimal 2 MB.',
+        ]);
+
+        $path = Storage::disk('local')->putFile('avatars', $request->file('avatar'));
+
+        if ($user->avatar_link && str_contains($user->avatar_link, '/avatars/')) {
+            $oldFilename = basename((string) parse_url($user->avatar_link, PHP_URL_PATH));
+            if ($oldFilename !== '' && Storage::disk('local')->exists('avatars/'.$oldFilename)) {
+                Storage::disk('local')->delete('avatars/'.$oldFilename);
+            }
+        }
+
+        $user->avatar_link = url('/avatars/'.basename($path));
+        $user->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Foto profil berhasil diperbarui.',
+            'data' => [
+                'avatar_link' => $user->avatar_link,
+            ],
+        ]);
+    }
+
+    /**
+     * Stream an uploaded avatar image from private local storage.
+     */
+    public function showAvatar(string $filename): Response
+    {
+        $safeName = basename($filename);
+        $storagePath = 'avatars/'.$safeName;
+
+        if (! Storage::disk('local')->exists($storagePath)) {
+            abort(404);
+        }
+
+        return Storage::disk('local')->response($storagePath);
     }
 }

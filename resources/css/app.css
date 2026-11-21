@@ -7,6 +7,119 @@
 @source "../**/*.vue";
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Montserrat', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+        'Courier New', monospace;
+}
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        font-family: var(--font-sans);
+        background-color: #ffffff;
+        color: #181c1f;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    @media (max-width: 639px) {
+        input,
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
+}
+
+/* Playing Card 3D Flip */
+.card-perspective {
+    perspective: 1200px;
+}
+
+.card-inner {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 225 / 335;
+    transform-style: preserve-3d;
+    transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.card-inner.is-flipped {
+    transform: rotateY(180deg);
+}
+
+.card-face {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 12px;
+}
+
+.card-face-front {
+    transform: rotateY(180deg);
+}
+
+/* Beaded rectangular frame matching UI_HASIL_ROLE_&_TIM.png */
+.card-beaded-frame {
+    position: relative;
+    background-color: #ffffff;
+}
+
+.card-beaded-frame::before {
+    content: '';
+    position: absolute;
+    inset: 10px;
+    border: 3px dotted #486284;
+    border-radius: 3px;
+    pointer-events: none;
+    opacity: 0.75;
+}
+
+@media (min-width: 640px) {
+    .card-beaded-frame::before {
+        inset: 14px;
+        border-width: 4px;
+    }
+}
+
+/* Modal animation */
+@keyframes sipadModalIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.animate-modal-in {
+    animation: sipadModalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom subtle scrollbar */
+.sipad-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.sipad-scroll::-webkit-scrollbar-track {
+    background: #f4f8fd;
+    border-radius: 9999px;
+}
+
+.sipad-scroll::-webkit-scrollbar-thumb {
+    background: #83b9ef;
+    border-radius: 9999px;
+}
+
+.sipad-scroll::-webkit-scrollbar-thumb:hover {
+    background: #0773df;
 }

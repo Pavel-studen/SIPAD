@@ -22,3 +22,5 @@ yarn-error.log
 /.vscode
 /.zed
 /DOCS
+/BACKEND_SYSTEM
+/FRONT_END_UI
