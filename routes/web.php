@@ -25,9 +25,39 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
-// Route::get('/', function () {
-//     return view('welcome');
-// });
+Route::get('/', function () {
+    return view('student.portal', ['initialSection' => 'pilih-peran']);
+})->name('student.portal');
+
+Route::get('/pilih-peran', function () {
+    return view('student.portal', ['initialSection' => 'pilih-peran']);
+})->name('student.pilih-peran');
+
+Route::get('/profile', function () {
+    return view('student.portal', ['initialSection' => 'pilih-peran']);
+})->name('student.profile');
+
+Route::get('/hasil-role', function () {
+    return view('student.portal', ['initialSection' => 'hasil-role']);
+})->name('student.hasil-role');
+
+Route::get('/pengaduan', function () {
+    return view('student.portal', ['initialSection' => 'pengaduan']);
+})->name('student.pengaduan');
+
+Route::get('/mahasiswa/{section?}', function (?string $section = null) {
+    $validSection = in_array($section, ['hasil-role', 'pengaduan'], true) ? $section : 'pilih-peran';
+
+    return view('student.portal', ['initialSection' => $validSection]);
+})->name('student.mahasiswa');
+
+Route::get('/auth/sso-return', function () {
+    return view('student.portal', ['initialSection' => 'pilih-peran']);
+})->name('student.sso-return');
+
+Route::get('/avatars/{filename}', [StudentProfilingController::class, 'showAvatar'])
+    ->where('filename', '[A-Za-z0-9._-]+')
+    ->name('avatars.show');
 
 // Route for login page
 Route::view('/login', 'auth.login')->name('login');
@@ -250,9 +280,13 @@ if (app()->environment('local', 'testing')) {
                     ]
                 );
 
-                if (count($createdStudents) >= 2) {
-                    StudentProfile::whereIn('user_id', [$createdStudents[0]->id, $createdStudents[2]->id])
-                        ->update(['team_id' => $demoTeam->id]);
+                if (count($createdStudents) >= 7) {
+                    StudentProfile::whereIn('user_id', [
+                        $createdStudents[0]->id,
+                        $createdStudents[2]->id,
+                        $createdStudents[4]->id,
+                        $createdStudents[6]->id,
+                    ])->update(['team_id' => $demoTeam->id]);
 
                     Storage::disk('local')->put('complaints/sample_evidence.pdf', '%PDF-1.4 Simulation Evidence');
 
@@ -268,6 +302,53 @@ if (app()->environment('local', 'testing')) {
                         ]
                     );
                 }
+
+                // Extra student accounts for testing UI branches (bypass & fresh profile)
+                $bypassStudent = User::updateOrCreate(
+                    ['email' => 'mhs.bypass@mail.ugm.ac.id'],
+                    [
+                        'name' => 'Raka Gemastik (Bypass)',
+                        'user_role' => UserRole::Student,
+                        'status' => 'active',
+                    ]
+                );
+
+                StudentProfile::updateOrCreate(
+                    ['user_id' => $bypassStudent->id],
+                    [
+                        'nim' => '21/471009/SV/19009',
+                        'is_bypass' => true,
+                        'role_1_id' => $roles['PM']?->id,
+                        'role_2_id' => null,
+                        'team_id' => null,
+                        'portfolio_link' => 'https://github.com/raka-gemastik',
+                    ]
+                );
+
+                StudentRoleEvaluation::where('user_id', $bypassStudent->id)->update(['is_locked' => false]);
+
+                $freshStudent = User::updateOrCreate(
+                    ['email' => 'mhs.baru@mail.ugm.ac.id'],
+                    [
+                        'name' => 'Misbahul Huda',
+                        'user_role' => UserRole::Student,
+                        'status' => 'active',
+                    ]
+                );
+
+                StudentProfile::updateOrCreate(
+                    ['user_id' => $freshStudent->id],
+                    [
+                        'nim' => '21/471010/SV/19010',
+                        'is_bypass' => false,
+                        'role_1_id' => null,
+                        'role_2_id' => null,
+                        'team_id' => null,
+                        'portfolio_link' => null,
+                    ]
+                );
+
+                StudentRoleEvaluation::where('user_id', $freshStudent->id)->delete();
             });
 
             return response()->json([

@@ -98,6 +98,9 @@ $registerRoutes = function () {
 
         // 4. Mengambil daftar rekan satu tim (selain diri sendiri) untuk dropdown Kotak Pengaduan
         Route::get('/teammates', [StudentProfilingController::class, 'teammates'])->name('teammates');
+
+        // 5. Unggah foto profil mahasiswa
+        Route::post('/avatar', [StudentProfilingController::class, 'uploadAvatar'])->name('avatar.upload');
     });
 
     // E. Modul Evaluasi Skor, Override Dosen & Penguncian Role (Proses 4.0 — Fase 3)
