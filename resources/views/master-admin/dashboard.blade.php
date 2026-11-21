@@ -30,7 +30,6 @@
         <div class="text-center mb-10">
             <!-- Greeting message -->
             <h1 class="text-[42px] font-bold text-[#486284] mb-2">Selamat Datang</h1>
-            <p class="text-gray-500 font-medium">Dashboard Master Admin</p>
         </div>
         
         <div class="bg-white p-8 rounded-xl shadow-sm border border-black/10 min-h-[400px]">
@@ -47,7 +46,6 @@
                         <tr class="h-[89px] text-gray-900">
                             <!-- <th class="p-4 font-bold align-middle">NIP</th> -->
                             <th class="p-4 font-bold align-middle">Nama</th>
-                            <th class="p-4 font-bold align-middle">Email</th>
                             <th class="p-4 font-bold align-middle">Aksi</th>
                         </tr>
                     </thead>
@@ -55,11 +53,10 @@
                         @foreach($lecturer as $item)
                         <tr class="border-b border-gray-200 hover:bg-gray-50 h-[70px]">
                             <td class="p-4 text-black-700 font-medium">{{ $item->name ?? $item->nama }}</td>
-                            <td class="p-4 text-gray-700">{{ $item->email }}</td>
                             <td class="p-4 font-medium">
                                 <button type="button"
-                                    @click="showModal = true; revokeUrl = '{{ route('master-admin.dosen.destroy', $item->id) }}'"
-                                    class="bg-red-500 text-white px-4 py-2 rounded text-sm hover:bg-red-700 transition">Hapus</button>
+                                    @click="showModal = true; revokeUrl = '{{ route('master-admin.lecturer.destroy', $item->id) }}'"
+                                    class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
                             </td>
                         </tr>
                         @endforeach
@@ -136,7 +133,7 @@
 
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-[#308242] font-bold text-lg">**</div>
-                        <input type="password" name="password" placeholder="Password (Min. 8 Karakter)" required
+                        <input type="password" name="password" placeholder="Password (Min. 8 Karakter)"
                             class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-md text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#308242] focus:ring-1 focus:ring-[#308242]">
                     </div>
 
