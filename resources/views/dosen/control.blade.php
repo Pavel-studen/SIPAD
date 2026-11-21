@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoring - PAD UI/UX</title>
+    <title>Monitoring - SIPAD</title>
     @vite('resources/css/app.css')
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -14,9 +14,6 @@
         <div class="text-white font-bold text-2xl">SIPAD</div>
         <div class="flex items-center gap-4">
             <div class="text-white text-right font-medium text-[16px]">Ir. Dinar Nugroho Pratomo, S.Kom., M.IM., M.Cs.</div>
-            <!-- <div class="w-[50px] h-[50px] bg-white rounded-full flex items-center justify-center overflow-hidden">
-                <span class="text-[#308242] font-bold">D</span>
-            </div> -->
         </div>
     </header>
 
@@ -77,9 +74,10 @@
             </div>
         </div>
 
-        <div class="flex justify-center mb-10">
-            <button class="bg-[#308242] text-white font-bold py-3 px-8 rounded-md hover:bg-green-700 transition shadow-sm w-2/3">Kunci Semua Data Mahasiswa</button>
-        </div>
+        <button type="button"
+            @click="showModal = true; revokeUrl = '{{ route('dosen.kunciMahasiswa') }}'"
+            class="bg-[#308242] text-white font-bold py-3 px-8 rounded-md hover:bg-green-700 transition shadow-sm w-2/3">Kunci Semua Data Mahasiswa
+        </button>
 
         <div class="border border-gray-300 rounded-md p-6 flex flex-col items-center justify-center gap-4 bg-gray-50">
             <div class="bg-green-100 text-[#308242] font-semibold px-4 py-1 rounded text-sm">Siap</div>
@@ -137,7 +135,7 @@
                     class="w-[140px] h-[45px] border border-gray-400 rounded-md text-gray-700 font-bold text-[16px] hover:bg-gray-100 transition">Batal</button>
 
                 <!-- Randomize execution button -->
-                <form method="POST" action="{{ route('team.randomize') }}">
+                <form method="POST" action="{{ route('dosen.acakTim') }}">
                     @csrf
                     <button 
                         type="submit"
@@ -179,9 +177,8 @@
             </div>
 
             <!-- Update form to Laravel -->
-            <form method="POST" action="{{ route('schedule.update') }}" class="w-full flex flex-col items-center">
+            <form method="POST" action="{{ route('dosen.editTanggal') }}" class="w-full flex flex-col items-center">
                 @csrf
-                @method('PUT')
                 
                 <!-- Input hidden to store selected dates -->
                 <input type="hidden" name="start_date" value="2067-08-01">

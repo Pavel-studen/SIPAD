@@ -3,29 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Admin - PAD UI/UX</title>
+    <title>Master Admin - SIPAD</title>
     @vite('resources/css/app.css')
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="bg-gray-50 text-neutral-900" style="font-family: 'Montserrat', sans-serif;" x-data="{ showModal: false, showAddModal: false, showErrorModal: false, selectedNip: '' }">
+<body class="bg-gray-50 text-neutral-900" style="font-family: 'Montserrat', sans-serif;"
+      x-data="{ showModal: false, showAddModal: false, showErrorModal: false, revokeUrl: '' }">
     
     <!-- Header -->
     <header class="bg-[#308242] w-full h-[92px] flex items-center justify-between px-8 shadow-md relative z-10">
         <!-- Logo -->
         <div class="text-white font-bold text-2xl">SIPAD</div>
-        
         <!-- Admin name -->
         <div class="flex items-center gap-4">
             <div class="text-white text-right font-Montserrat font-[18.369px] font-bold font-[700px] line-normal">AdminPAD123 (MasterAdmin)</div>
-            <!-- <div class="text-white text-right font-bold text-[18px]">AdminPAD123 (MasterAdmin)</div> -->
-            <!-- <div class="w-[50px] h-[50px] bg-white rounded-full flex items-center justify-center overflow-hidden shadow-sm">
-                <span class="text-[#308242] font-bold text-xl">M</span>
-            </div> -->
         </div>
     </header>
 
     <main class="w-full max-w-6xl mx-auto px-4 py-8">
+        @if(session('success'))
+            <div class="mb-4 p-4 text-green-800 border-l-4 border-green-600 bg-green-100 rounded-md">
+                {{ session('success') }}
+            </div>
+        @endif
         <div class="text-center mb-10">
             <!-- Greeting message -->
             <h1 class="text-[42px] font-bold text-[#486284] mb-2">Selamat Datang</h1>
@@ -44,20 +45,24 @@
                 <table class="w-full text-center border-collapse">
                     <thead class="bg-[#8DD99D]">
                         <tr class="h-[89px] text-gray-900">
-                            <th class="p-4 font-bold align-middle">NIP</th>
+                            <!-- <th class="p-4 font-bold align-middle">NIP</th> -->
                             <th class="p-4 font-bold align-middle">Nama</th>
+                            <th class="p-4 font-bold align-middle">Email</th>
                             <th class="p-4 font-bold align-middle">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
+                        @foreach($lecturer as $item)
                         <tr class="border-b border-gray-200 hover:bg-gray-50 h-[70px]">
-                            <td class="p-4 text-black-700 font-medium">568209</td>
-                            <td class="p-4 text-black-700 font-medium">Ir. Dinar Nugroho Pratomo, S.Kom., M.IM., M.Cs.</td>
-                            <td class="p-4 text-gray-700 font-medium">
-                                <!-- <button class="text-blue-600 hover:underline mx-1">Edit</button> -->
-                                <button @click="showModal = true" class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
+                            <td class="p-4 text-black-700 font-medium">{{ $item->name ?? $item->nama }}</td>
+                            <td class="p-4 text-gray-700">{{ $item->email }}</td>
+                            <td class="p-4 font-medium">
+                                <button type="button"
+                                    @click="showModal = true; revokeUrl = '{{ route('master-admin.dosen.destroy', $item->id) }}'"
+                                    class="bg-red-500 text-white px-4 py-2 rounded text-sm hover:bg-red-700 transition">Hapus</button>
                             </td>
                         </tr>
+                        @endforeach
                     </tbody>
                 </table>
             </div>
@@ -82,14 +87,16 @@
                 <p class="text-[20px] font-normal text-black leading-snug">Apakah Anda yakin untuk menghilangkan hak<br>akses admin?</p>
             </div>
 
-            <div class="flex items-center justify-center gap-6 w-full mb-2">
+            <form :action="revokeUrl" method="POST" class="flex items-center justify-center gap-6 w-full mb-2">
+                @csrf 
+                @method('DELETE')
+
                 <button @click="showModal = false" type="button" class="w-[180px] h-[45px] border border-gray-400 rounded-md text-gray-700 font-medium text-[16px] hover:bg-gray-100 transition">
                     Tidak</button>
 
                 <button type="submit" class="w-[180px] h-[45px] bg-[#308242] rounded-md text-white font-medium text-[16px] hover:bg-green-800 transition shadow-sm">
                     Iya</button>
-            </div>
-            
+            </form>
         </div>
     </div>
     <div 
@@ -101,8 +108,8 @@
         x-transition:enter-end="opacity-100"
         x-transition:leave="transition ease-in duration-100"
         x-transition:leave-start="opacity-100"
-        x-transition:leave-end="opacity-0"
-    >
+        x-transition:leave-end="opacity-0">
+
         <div @click.away="showAddModal = false" class="bg-white w-[644px] rounded-lg border-2 border-[#308242] shadow-2xl overflow-hidden">
             <div class="px-8 py-5 border-b border-gray-200">
                 <h3 class="text-[24px] font-bold text-[#486284]">Input Data</h3>
@@ -128,13 +135,13 @@
                     </div>
 
                     <div class="relative">
-                        <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-[#308242] font-bold text-lg">#</div>
-                        <input type="text" name="nip" placeholder="NIP Dosen" required
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-[#308242] font-bold text-lg">**</div>
+                        <input type="password" name="password" placeholder="Password (Min. 8 Karakter)" required
                             class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-md text-gray-700 placeholder-gray-400 focus:outline-none focus:border-[#308242] focus:ring-1 focus:ring-[#308242]">
                     </div>
 
                     <div class="mt-2">
-                        <button @click.prevent="showAddModal = false; showErrorModal = true" type="submit" class="bg-[#308242] text-white px-6 py-2.5 rounded-md text-[15px] font-bold hover:bg-green-800 transition shadow-sm flex items-center gap-2">
+                        <button type="submit" class="bg-[#308242] text-white px-6 py-2.5 rounded-md text-[15px] font-bold hover:bg-green-800 transition shadow-sm flex items-center gap-2">
                             <svg class="w-4 h-4 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                             Terima</button>
                     </div>
@@ -151,12 +158,11 @@
         x-transition:enter-end="opacity-100"
         x-transition:leave="transition ease-in duration-150"
         x-transition:leave-start="opacity-100"
-        x-transition:leave-end="opacity-0"
-    >
+        x-transition:leave-end="opacity-0">
+        
         <div 
             @click.away="showErrorModal = false"
-            class="bg-white w-[737px] h-[331px] rounded-lg border-[3px] border-[#308242] shadow-2xl flex flex-col items-center justify-center relative p-8"
-        >
+            class="bg-white w-[737px] h-[331px] rounded-lg border-[3px] border-[#308242] shadow-2xl flex flex-col items-center justify-center relative p-8">
             <div class="mb-4">
                 <svg class="w-16 h-16 text-[#308242]" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3a1 1 0 102 0V7zm-1 7a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" clip-rule="evenodd"></path>

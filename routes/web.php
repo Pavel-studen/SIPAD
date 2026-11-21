@@ -4,6 +4,8 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\StudentProfilingController;
 use App\Http\Controllers\DosenController;
+use App\Http\Controllers\PractitionerController;
+use App\Http\Controllers\MahasiswaController;
 use App\Http\Controllers\MasterAdminController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SpecialTeamController;
@@ -56,20 +58,48 @@ Route::get('/avatars/{filename}', [StudentProfilingController::class, 'showAvata
     ->where('filename', '[A-Za-z0-9._-]+')
     ->name('avatars.show');
 
-// Route for the master admin dashboard
-Route::get('/master-admin', [MasterAdminController::class, 'dashboard'])->name('master-admin.dashboard');
+// Route for the student (mahasiswa) dashboard
+Route::get('/mahasiswa', [MahasiswaController::class, 'dashboard'])->name('mahasiswa.dashboard');
 
-// Routes for managing master admin actions
-Route::delete('/master-admin/revoke', [MasterAdminController::class, 'revoke'])->name('master-admin.revoke');
-Route::delete('/master-admin/store', [MasterAdminController::class, 'store'])->name('master-admin.store');
+// Route for the master admin dashboard
+Route::middleware(['web'])->group(function(){
+    Route::get('/master-admin', [MasterAdminController::class, 'dashboard'])->name('master-admin.dashboard');
+    Route::post('/master-admin/store', [MasterAdminController::class, 'store'])->name('master-admin.store');
+    // Route for changing status admin to lecturer (using {id} parameter)
+    Route::delete('/master-admin/dosen/{id}', [MasterAdminController::class, 'destroy'])->name('master-admin.dosen.destroy');
+});
 
 // Routes for managing lecturer (dosen) actions
-Route::get('/dosen/control', [DosenController::class, 'control'])->name('dosen.control');
-Route::get('/team/randomize', [TeamController::class, 'randomize'])->name('team.randomize');
-Route::get('/schedule/update', [ScheduleController::class, 'updateSchedule'])->name('schedule.update');
-Route::get('/dosen/access', [DosenController::class, 'access'])->name('dosen.access');
-Route::get('/dosen/bypass', [DosenController::class, 'bypass'])->name('dosen.bypass');
-Route::get('/special-team/lock', [SpecialTeamController::class, 'lockTeam'])->name('special-team.lock');
+Route::middleware(['web'])->prefix('dosen')->name('dosen.')->group(function(){
+    // Route for views
+    Route::get('/control', [DosenController::class, 'control'])->name('control');
+    Route::get('/access', [DosenController::class, 'access'])->name('access');
+    Route::get('/bypass', [DosenController::class, 'bypass'])->name('bypass');
+
+    // Route for actions: Control page
+    Route::post('/control/edit-tanggal', [DosenController::class, 'editTanggal'])->name('editTanggal');
+    Route::post('/control/kunci-mahasiswa', [DosenController::class, 'kunciSemuaMahasiswa'])->name('kunciMahasiswa');
+    Route::post('/control/acak-tim', [DosenController::class, 'acakTimOtomatis'])->name('acakTim');
+
+    // Route for actions: User page
+    Route::post('/access/tambah-email', [DosenController::class, 'tambahEmail'])->name('tambahEmail');
+    Route::post('/access/import-csv', [DosenController::class, 'importCSV'])->name('importCSV');
+    Route::post('/access/hapus-email/{id}', [DosenController::class, 'hapusEmail'])->name('hapusEmail');
+    Route::post('/access/simpan-proyek', [DosenController::class, 'simpanProyek'])->name('simpanProyek');
+
+    // Route for actions: Bypass page
+    Route::post('/bypass/tambah-anggota', [DosenController::class, 'tambahAnggota'])->name('tambahAnggota');
+    Route::post('/bypass/kunci-tim/{id}', [DosenController::class, 'kunciTim'])->name('kunciTim');
+});
+
+Route::middleware(['web'])->prefix('practitioner')->name('practitioner.')->group(function(){
+    Route::get('/dashboard', [PractitionerController::class, 'dashboard'])->name('dashboard');
+    Route::get('/complaint', [PractitionerController::class, 'complaint'])->name('complaint');
+
+    Route::get('/student/{id}/detail', [PractitionerController::class, 'getStudentDetail'])->name('student.detail');
+
+    Route::get('/api/pengaduan/{id}', [PractitionerController::class, 'show'])->name('api.pengaduan.show');
+});
 
 // Google OAuth callback endpoint (matches GOOGLE_REDIRECT_URI)
 Route::match(['get', 'post'], '/auth/google/callback', [AuthController::class, 'googleCallback'])

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manajemen Akses - PAD UI/UX</title>
+    <title>Manajemen Akses - SIPAD</title>
     @vite('resources/css/app.css')
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -14,9 +14,6 @@
         <div class="text-white font-bold text-2xl">SIPAD</div>
         <div class="flex items-center gap-4">
             <div class="text-white text-right font-medium text-[16px]">Ir. Dinar Nugroho Pratomo, S.Kom., M.IM., M.Cs.</div>
-            <!-- <div class="w-[50px] h-[50px] bg-white rounded-full flex items-center justify-center overflow-hidden">
-                <span class="text-[#308242] font-bold">D</span>
-            </div> -->
         </div>
     </header>
 
@@ -25,24 +22,33 @@
         <section class="mb-10">
             <h2 class="text-[#486284] text-lg font-bold mb-4 uppercase tracking-wide">Tambah Stakeholder (Manual Input)</h2>
             
-            <div class="flex items-end gap-4 mb-4">
+            <form action="{{ route('dosen.tambahEmail') }}" method="POST" class="flex gap-4 items-end">
+                @csrf
                 <div class="flex-1">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Ketik Alamat Email:</label>
-                    <input type="email" placeholder="email.user@ugm.ac.id" class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-[#308242] focus:border-[#308242]">
+                    <input type="email" name="email" required placeholder="email.user@ugm.ac.id" class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-[#308242] focus:border-[#308242]">
                 </div>
                 <div class="w-1/3">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Peran Akses:</label>
                     <select class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-[#308242] focus:border-[#308242] bg-white">
-                        <option>Praktisi (Dosen Industri)</option>
-                        <option>Asisten Praktikum</option>
+                        <option value="praktisi">Praktisi (Dosen Industri)</option>
+                        <option value="asprak">Asisten Praktikum</option>
+                        <option value="mahasiswa">Mahasiswa</option>
+                        <option value="po">Project Owner</option>
                     </select>
                 </div>
-                <button class="bg-[#308242] text-white px-6 py-2 rounded-md font-semibold hover:bg-green-700 transition h-[42px]">+ Tambah Email</button>
-            </div>
+                <button type="submit" class="bg-[#308242] text-white px-6 py-2 rounded-md font-semibold hover:bg-green-700 transition h-[42px]">
+                    + Tambah Email</button>
+            </form>
             
             <div class="flex items-center gap-4">
                 <span class="text-sm text-gray-500 font-medium">atau</span>
-                <button class="bg-[#308242] text-white px-6 py-2 rounded-md font-semibold hover:bg-green-700 transition">Import File CSV Peserta KRS</button>
+                <form action="{{ route('dosen.importCSV') }}" method="POST" enctype="multipart/form-data" class="mt-4">
+                    @csrf
+                    <input type="file" name="csv_file" id="csv_upload" accept=".csv" class="hidden" onchange="this.form.submit()">
+                    <label for="csv_upload" class="bg-[#308242] text-white px-6 py-2 rounded-md font-semibold hover:bg-green-700 transition">
+                        Import File CSV Peserta KRS</label>
+                </form>
             </div>
         </section>
 
@@ -76,82 +82,41 @@
                         </tr>
                     </thead>
                     <tbody>
-
+                        @forelse($stakeholders as $item)
                         <tr class="border-b border-gray-200 hover:bg-gray-50">
-                            <td class="p-3 text-gray-700">pak.budi@praktisi.com</td>
-                            <td class="p-3 text-gray-700">Budi Gunawan, M.T.</td>
-                            <td class="p-3">
-                                <select class="border border-gray-300 rounded px-2 py-1 text-xs w-full bg-white">
-                                    <option>Praktisi</option>
-                                </select>
+                            <td class="p-3 text-sm">{{ $item->email }}</td>
+                            <td class="p-3 text-sm">{{ $item->name }}</td>
+                            <td class="p-3 text-sm">{{ $item->role }}</td>
+                            <td class="p-3 text-sm">
+                                @if($item->status == 'Verified')
+                                    <span class="text-green-600 font-medium">Verified</span>
+                                @else
+                                    <span class="text-red-500 font-medium">Not Submitted</span>
+                                @endif
                             </td>
-                            <td class="p-3">
-                                <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold border border-green-200">Verified</span>
-                            </td>
-                            <td class="p-3 text-center">
-                                <button class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
+                            <td class="p-3 text-sm text-center">
+                                <form action="{{ route('dosen.hapusEmail', $item->id) }}" method="POST" onsubmit="return confirm('Hapus data ini?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-gray-600 font-semibold hover:text-red-600">Hapus</button>
+                                </form>
                             </td>
                         </tr>
-
-                        <tr class="border-b border-gray-200 hover:bg-gray-50">
-                            <td class="p-3 text-gray-700">asdos.dewa@mail.ugm.ac.id</td>
-                            <td class="p-3 text-gray-700">Dewa Pratama (Asprak)</td>
-                            <td class="p-3">
-                                <select class="border border-gray-300 rounded px-2 py-1 text-xs w-full bg-white">
-                                    <option>Asprak</option>
-                                </select>
-                            </td>
-                            <td class="p-3">
-                                <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold border border-green-200">Verified</span>
-                            </td>
-                            <td class="p-3 text-center">
-                                <button class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
-                            </td>
+                        @empty
+                        <tr>
+                            <td colspan="5" class="p-4 text-center text-gray-500">Belum ada email terdaftar.</td>
                         </tr>
-                    
-                        <tr class="border-b border-gray-200 hover:bg-gray-50">
-                            <td class="p-3 text-gray-700">siti.rahma@mail.ugm.ac.id</td>
-                            <td class="p-3 text-gray-700">Siti Rahmawati</td>
-                            <td class="p-3">
-                                <select class="border border-gray-300 rounded px-2 py-1 text-xs w-full bg-white">
-                                    <option>Mahasiswa</option>
-                                </select>
-                            </td>
-                            <td class="p-3">
-                                <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold border border-blue-200">Form Filled</span>
-                            </td>
-                            <td class="p-3 text-center">
-                                <button class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
-                            </td>
-                        </tr>
-
-                        <tr class="border-b border-gray-200 hover:bg-gray-50">
-                            <td class="p-3 text-gray-700">andi.w@gmail.com</td>
-                            <td class="p-3 text-gray-700">Andi Wijaya</td>
-                            <td class="p-3">
-                                <select class="border border-gray-300 rounded px-2 py-1 text-xs w-full bg-white">
-                                    <option>Project Own...</option>
-                                </select>
-                            </td>
-                            <td class="p-3">
-                                <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-semibold border border-red-200">Not Submitted</span>
-                            </td>
-                            <td class="p-3 text-center">
-                                <button class="text-[#308242] font-bold hover:underline mx-1">Hapus</button>
-                            </td>
-                        </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
 
-            <div class="flex justify-between items-center text-sm text-gray-500">
-                <span>Showing 1-4 of 24</span>
-                <div class="flex items-center gap-1">
-                    <button class="px-2 py-1 border border-gray-300 rounded hover:bg-gray-50">&lt;</button>
-                    <button class="px-3 py-1 bg-[#308242] text-white rounded font-medium">1</button>
-                    <button class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 text-gray-700">2</button>
-                    <button class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 text-gray-700">3</button>
-                    <button class="px-2 py-1 border border-gray-300 rounded hover:bg-gray-50">&gt;</button>
+            <div class="flex justify-between items-center mt-4">
+                <div class="text-sm text-gray-500">
+                    Menampilkan {{ $stakeholders->firstItem() ?? 0 }} - {{ $stakeholders->lastItem() ?? 0 }} dari {{$stakeholders->total() }} data
+                </div>
+                <div class="flex justify-end">
+                    {{ $stakeholders->links() }}
                 </div>
             </div>
         </section>
@@ -161,22 +126,26 @@
         <section>
             <h2 class="text-[#486284] text-lg font-bold mb-2 uppercase tracking-wide">Input Detail Proyek</h2>
             <p class="text-xs text-gray-500 mb-4 italic">*Silakan ketik manual detail informasi proyek untuk PAD.</p>
-            
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-[#308242] mb-1">1. Nama Proyek</label>
-                <input type="text" placeholder="Type nama proyek (misal: E-Commerce Smart Village)" class="w-1/2 border border-gray-300 rounded-md px-4 py-2 text-sm focus:ring-[#308242] focus:border-[#308242]">
-            </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-[#308242] mb-1">2. Project Owner (PO)</label>
-                <input type="text" placeholder="Type nama PO (misal: Ir. Hendra S.T., M.Eng.)" class="w-1/2 border border-gray-300 rounded-md px-4 py-2 text-sm focus:ring-[#308242] focus:border-[#308242]">
-            </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-[#308242] mb-1">3. Nama Mitra Proyek</label>
-                <input type="text" placeholder="Type nama mitra/perusahaan (misal: PT. Digital Solusindo)" class="w-1/2 border border-gray-300 rounded-md px-4 py-2 text-sm focus:ring-[#308242] focus:border-[#308242]">
-            </div>
-            <div class="pt-2">
-            <button type="button" class="w-[320px] h-[44px] bg-[#308242] text-white rounded-md font-semibold flex justify-center items-center hover:bg-green-700 transition shadow-sm">Simpan Detail Proyek</button>
-            </div>
+            <form action="{{ route('dosen.simpanProyek') }}" method="POST" class="flex flex-col gap-4">
+                @csrf
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-[#308242] mb-1">1. Nama Proyek</label>
+                    <input type="text" name="nama_proyek" required placeholder="Type nama proyek (misal: E-Commerce Smart Village)" class="w-1/2 border border-gray-300 rounded-md px-4 py-2 text-sm focus:ring-[#308242] focus:border-[#308242]">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-[#308242] mb-1">2. Project Owner (PO)</label>
+                    <input type="text" name="project_owner" required placeholder="Type nama PO (misal: Ir. Hendra S.T., M.Eng.)" class="w-1/2 border border-gray-300 rounded-md px-4 py-2 text-sm focus:ring-[#308242] focus:border-[#308242]">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-[#308242] mb-1">3. Nama Mitra Proyek</label>
+                    <input type="text" name="mitra_proyek" required placeholder="Type nama mitra/perusahaan (misal: PT. Digital Solusindo)" class="w-1/2 border border-gray-300 rounded-md px-4 py-2 text-sm focus:ring-[#308242] focus:border-[#308242]">
+                </div>
+
+                <button type="submit" class="bg-[#308242] text-white px-6 py-2 rounded-md font-bold hover:bg-green-700 w-fit">
+                    Simpan Detail Proyek</button>
+            </form>
         </section>
 
         <div class="flex gap-4 mt-12 mb-8">
