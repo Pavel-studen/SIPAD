@@ -287,6 +287,7 @@ class StudentProfilingController extends Controller
                         'name' => $team->project->project_name,
                         'description' => $team->project->project_description,
                         'associate' => $team->project->project_associate,
+                        'owner_display_name' => $this->resolveProjectOwnerDisplayName($team->project),
                         'owner' => $team->project->owner ? [
                             'id' => $team->project->owner->id,
                             'name' => $team->project->owner->name,
@@ -304,6 +305,7 @@ class StudentProfilingController extends Controller
                             'name' => $member->user?->name,
                             'email' => $member->user?->email,
                             'nim' => $member->nim,
+                            'avatar_link' => $member->user?->avatar_link,
                             'portfolio_link' => $member->portfolio_link,
                             'final_role' => $memberFinalRole ? [
                                 'id' => $memberFinalRole->id,
@@ -427,5 +429,25 @@ class StudentProfilingController extends Controller
         }
 
         return Storage::disk('local')->response($storagePath);
+    }
+
+    /**
+     * Resolve display name of a project's owner, preferring manual "PO: ..." line if present.
+     */
+    protected function resolveProjectOwnerDisplayName(?\App\Models\Project $project): ?string
+    {
+        if (! $project) {
+            return null;
+        }
+
+        $desc = (string) ($project->project_description ?? '');
+        if (preg_match('/^PO:\s*(.+)$/mi', $desc, $matches) === 1) {
+            $manualOwner = trim($matches[1]);
+            if ($manualOwner !== '') {
+                return $manualOwner;
+            }
+        }
+
+        return $project->owner?->name;
     }
 }

@@ -1,12 +1,20 @@
-const initialSection = window.__SIPAD_CONFIG__?.initialSection || 'pilih-peran';
+const initialSection = window.__SIPAD_CONFIG__?.initialSection || 'home';
+const initialComplaintId = window.__SIPAD_CONFIG__?.initialComplaintId || null;
 
 export const state = {
     booting: true,
     authLoading: false,
     token: '',
     user: null,
-    activeTab: initialSection, // 'pilih-peran' | 'hasil-role' | 'pengaduan'
+    activeTab: initialSection, // 'home' | 'landing' | 'access-blocked' | 'dashboard' | 'pilih-peran' | 'hasil-role' | 'pengaduan' | 'asprak-dashboard' | 'asprak-complaint' | 'asprak-project'
+    initialComplaintId: initialComplaintId ? Number(initialComplaintId) : null,
     profileDropdownOpen: false,
+    devDrawerOpen: false,
+
+    accessBlocked: {
+        email: '',
+        message: '',
+    },
 
     profiling: {
         loading: false,
@@ -65,6 +73,25 @@ export const state = {
             file: null,
             description: '',
             confirmed: false,
+        },
+    },
+
+    asprak: {
+        loading: false,
+        loaded: false,
+        error: '',
+        teams: [],
+        complaints: [],
+        selectedTeamId: null,
+        detailComplaintLoading: false,
+        detailComplaint: null,
+        reviewingId: null,
+        projectSubmitting: false,
+        projectForm: {
+            team_id: null,
+            project_name: '',
+            project_owner_name: '',
+            project_associate: '',
         },
     },
 
@@ -136,5 +163,23 @@ export function resetSessionState() {
         file: null,
         description: '',
         confirmed: false,
+    };
+    state.asprak = {
+        loading: false,
+        loaded: false,
+        error: '',
+        teams: [],
+        complaints: [],
+        selectedTeamId: null,
+        detailComplaintLoading: false,
+        detailComplaint: null,
+        reviewingId: null,
+        projectSubmitting: false,
+        projectForm: {
+            team_id: null,
+            project_name: '',
+            project_owner_name: '',
+            project_associate: '',
+        },
     };
 }

@@ -15,7 +15,8 @@
 <body class="bg-white text-[#181C1F] antialiased selection:bg-[#C0DDF9] selection:text-[#045DDA]">
     <script>
         window.__SIPAD_CONFIG__ = {
-            initialSection: @json($initialSection ?? 'pilih-peran'),
+            initialSection: @json($initialSection ?? 'home'),
+            initialComplaintId: @json($initialComplaintId ?? null),
             isLocal: @json(app()->environment('local')),
             apiBase: '/api/v1'
         };

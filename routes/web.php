@@ -26,8 +26,24 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
 Route::get('/', function () {
-    return view('student.portal', ['initialSection' => 'pilih-peran']);
+    return view('student.portal', ['initialSection' => 'home']);
 })->name('student.portal');
+
+Route::get('/login', function () {
+    return view('student.portal', ['initialSection' => 'landing']);
+})->name('login');
+
+Route::get('/landing', function () {
+    return view('student.portal', ['initialSection' => 'landing']);
+})->name('student.landing');
+
+Route::get('/auth/access-blocked', function () {
+    return view('student.portal', ['initialSection' => 'access-blocked']);
+})->name('student.access-blocked');
+
+Route::get('/dashboard', function () {
+    return view('student.portal', ['initialSection' => 'dashboard']);
+})->name('student.dashboard');
 
 Route::get('/pilih-peran', function () {
     return view('student.portal', ['initialSection' => 'pilih-peran']);
@@ -46,10 +62,41 @@ Route::get('/pengaduan', function () {
 })->name('student.pengaduan');
 
 Route::get('/mahasiswa/{section?}', function (?string $section = null) {
-    $validSection = in_array($section, ['hasil-role', 'pengaduan'], true) ? $section : 'pilih-peran';
+    $validSection = in_array($section, ['dashboard', 'hasil-role', 'pengaduan'], true) ? $section : 'pilih-peran';
 
     return view('student.portal', ['initialSection' => $validSection]);
 })->name('student.mahasiswa');
+
+Route::get('/asisten', function () {
+    return view('student.portal', ['initialSection' => 'asprak-dashboard']);
+})->name('asprak.dashboard');
+
+Route::get('/asprak', function () {
+    return view('student.portal', ['initialSection' => 'asprak-dashboard']);
+})->name('asprak.alias');
+
+Route::get('/asisten/dashboard', function () {
+    return view('student.portal', ['initialSection' => 'asprak-dashboard']);
+})->name('asprak.dashboard.alias');
+
+Route::get('/asisten/input-proyek', function () {
+    return view('student.portal', ['initialSection' => 'asprak-project']);
+})->name('asprak.project');
+
+Route::get('/asprak/input-proyek', function () {
+    return view('student.portal', ['initialSection' => 'asprak-project']);
+})->name('asprak.project.alias');
+
+Route::get('/asisten/pengaduan/{id}', function (int $id) {
+    return view('student.portal', [
+        'initialSection' => 'asprak-complaint',
+        'initialComplaintId' => $id,
+    ]);
+})->whereNumber('id')->name('asprak.complaint');
+
+Route::get('/404', function () {
+    return response()->view('errors.404', [], 404);
+})->name('error.404');
 
 Route::get('/auth/sso-return', function () {
     return view('student.portal', ['initialSection' => 'pilih-peran']);
@@ -204,7 +251,7 @@ if (app()->environment('local', 'testing')) {
                     ]
                 );
 
-                User::updateOrCreate(
+                $practitioner = User::updateOrCreate(
                     ['email' => 'praktisi.industri@mail.ugm.ac.id'],
                     [
                         'name' => 'Andi Pratama (Praktisi)',
@@ -264,29 +311,76 @@ if (app()->environment('local', 'testing')) {
                     $createdStudents[] = $student;
                 }
 
-                // Create 1 demo team with 2 demo students and 1 complaint ticket
-                $demoTeam = Team::firstOrCreate(
-                    ['team_type' => 'internal', 'supervisor' => $assistant->id],
-                    ['is_locked' => false]
-                );
+                // Create 2 demo teams supervised by Asprak (Team 1 with complaint, Team 2 without complaint)
+                $existingTeams = Team::where('team_type', 'internal')
+                    ->where('supervisor', $assistant->id)
+                    ->orderBy('id')
+                    ->get();
+
+                $demoTeam = $existingTeams->get(0) ?? Team::create([
+                    'team_type' => 'internal',
+                    'supervisor' => $assistant->id,
+                    'is_locked' => false,
+                ]);
+
+                $demoTeam2 = $existingTeams->get(1) ?? Team::create([
+                    'team_type' => 'internal',
+                    'supervisor' => $assistant->id,
+                    'is_locked' => false,
+                ]);
+
+                $takenOwnerIds = Project::whereNotIn('project_team', [$demoTeam->id, $demoTeam2->id])
+                    ->pluck('project_owner')
+                    ->toArray();
+
+                $ownerTeam1 = Project::where('project_team', $demoTeam->id)->value('project_owner')
+                    ?? (! in_array($lecturer->id, $takenOwnerIds, true)
+                        ? $lecturer->id
+                        : User::whereNotIn('id', $takenOwnerIds)->value('id') ?? $lecturer->id);
 
                 Project::updateOrCreate(
                     ['project_team' => $demoTeam->id],
                     [
                         'project_name' => 'Sistem Informasi Proyek Aplikasi Dasar (Demo)',
-                        'project_owner' => $lecturer->id,
+                        'project_owner' => $ownerTeam1,
                         'project_associate' => 'Program Studi TRPL SV UGM',
                         'project_description' => 'Proyek simulasi untuk pengujian endpoint SIPAD.',
                     ]
                 );
 
-                if (count($createdStudents) >= 7) {
+                $takenOwnerIds2 = Project::where('project_team', '!=', $demoTeam2->id)
+                    ->pluck('project_owner')
+                    ->toArray();
+
+                $ownerTeam2 = Project::where('project_team', $demoTeam2->id)->value('project_owner')
+                    ?? (! in_array($practitioner->id, $takenOwnerIds2, true)
+                        ? $practitioner->id
+                        : User::whereNotIn('id', $takenOwnerIds2)->value('id') ?? $practitioner->id);
+
+                Project::updateOrCreate(
+                    ['project_team' => $demoTeam2->id],
+                    [
+                        'project_name' => 'Smart Campus Inventory Tracker (Demo)',
+                        'project_owner' => $ownerTeam2,
+                        'project_associate' => 'PT. Digital Solusindo',
+                        'project_description' => "PO: Ir. Dinar Nugroho Pratomo, S.Kom., M.IM., M.Cs.\nAplikasi manajemen inventaris laboratorium.",
+                    ]
+                );
+
+                if (count($createdStudents) >= 8) {
                     StudentProfile::whereIn('user_id', [
                         $createdStudents[0]->id,
                         $createdStudents[2]->id,
                         $createdStudents[4]->id,
                         $createdStudents[6]->id,
                     ])->update(['team_id' => $demoTeam->id]);
+
+                    StudentProfile::whereIn('user_id', [
+                        $createdStudents[1]->id,
+                        $createdStudents[3]->id,
+                        $createdStudents[5]->id,
+                        $createdStudents[7]->id,
+                    ])->update(['team_id' => $demoTeam2->id]);
 
                     Storage::disk('local')->put('complaints/sample_evidence.pdf', '%PDF-1.4 Simulation Evidence');
 
@@ -297,7 +391,7 @@ if (app()->environment('local', 'testing')) {
                             'team_id' => $demoTeam->id,
                         ],
                         [
-                            'description' => 'Anggota tim tidak menghadiri rapat sprint mingguan selama 2 pekan berturut-turut.',
+                            'description' => "Alasan: Suka ilang ilangan\n\nAnggota tim tidak menghadiri rapat sprint mingguan selama 2 pekan berturut-turut dan saat weekly report selalu tidak hadir.",
                             'evidence_file_path' => 'complaints/sample_evidence.pdf',
                         ]
                     );

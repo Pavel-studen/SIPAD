@@ -5,14 +5,18 @@ import {
     devSeedSampleData,
     downloadComplaintEvidence,
     exchangeGoogleCallback,
+    fetchComplaintDetail,
     fetchComplaints,
     fetchMe,
     fetchMyTeam,
     fetchProfilingConfig,
+    fetchTeams,
     fetchTeammates,
     getGoogleRedirect,
     getStoredToken,
     logoutApi,
+    reviewComplaint,
+    saveTeamProject,
     setStoredToken,
     setUnauthorizedHandler,
     submitComplaint,
@@ -27,7 +31,9 @@ import {
     parseNimStatus,
     roleDisplayTag,
 } from './utils.js';
+import { renderAsprakView } from './views/asprakView.js';
 import { renderAuthScreen } from './views/authView.js';
+import { renderDashboardView } from './views/dashboardView.js';
 import { renderHasilRoleView } from './views/hasilRoleView.js';
 import { renderBottomNav, renderDecorativeFlowers, renderHeader } from './views/layout.js';
 import { renderModal } from './views/modals.js';
@@ -38,10 +44,46 @@ const rootEl = document.getElementById('sipad-app');
 const isLocal = Boolean(window.__SIPAD_CONFIG__?.isLocal);
 
 const TAB_PATH_MAP = {
+    dashboard: '/dashboard',
     'pilih-peran': '/pilih-peran',
     'hasil-role': '/hasil-role',
     pengaduan: '/pengaduan',
+    'asprak-dashboard': '/asisten',
+    'asprak-project': '/asisten/input-proyek',
+    landing: '/landing',
+    'access-blocked': '/auth/access-blocked',
 };
+
+function resolveHomeTabForUser(user) {
+    const role = String(user?.user_role || user?.role || 'student').toLowerCase();
+    return role === 'assistant' ? 'asprak-dashboard' : 'dashboard';
+}
+
+function getTabFromPath(pathname) {
+    if (pathname.includes('/auth/access-blocked')) return 'access-blocked';
+    if (pathname === '/login' || pathname === '/landing') return 'landing';
+    if (pathname.includes('/asisten/input-proyek') || pathname.includes('/asprak/input-proyek')) return 'asprak-project';
+    if (pathname.includes('/asisten/pengaduan/')) return 'asprak-complaint';
+    if (pathname.startsWith('/asisten') || pathname.startsWith('/asprak')) return 'asprak-dashboard';
+    if (pathname.includes('/dashboard')) return 'dashboard';
+    if (pathname.includes('/hasil-role')) return 'hasil-role';
+    if (pathname.includes('/pengaduan')) return 'pengaduan';
+    if (pathname.includes('/pilih-peran') || pathname.includes('/profile')) return 'pilih-peran';
+    return 'home';
+}
+
+function syncUrlToTab(tab, replace = false, extraId = null) {
+    let targetPath = TAB_PATH_MAP[tab];
+    if (tab === 'asprak-complaint' && extraId) {
+        targetPath = `/asisten/pengaduan/${extraId}`;
+    }
+    if (!targetPath) return;
+
+    if (window.location.pathname !== targetPath) {
+        const method = replace ? 'replaceState' : 'pushState';
+        window.history[method]({ tab, complaintId: extraId }, '', targetPath);
+    }
+}
 
 function renderApp() {
     if (!rootEl) return;
@@ -58,13 +100,17 @@ function renderApp() {
         return;
     }
 
-    if (!state.user) {
+    if (!state.user || state.activeTab === 'access-blocked' || state.activeTab === 'landing') {
         rootEl.innerHTML = renderAuthScreen(state);
         return;
     }
 
     let pageHtml = '';
-    if (state.activeTab === 'hasil-role') {
+    if (state.activeTab === 'asprak-dashboard' || state.activeTab === 'asprak-complaint' || state.activeTab === 'asprak-project') {
+        pageHtml = renderAsprakView(state);
+    } else if (state.activeTab === 'dashboard') {
+        pageHtml = renderDashboardView(state);
+    } else if (state.activeTab === 'hasil-role') {
         pageHtml = renderHasilRoleView(state);
     } else if (state.activeTab === 'pengaduan') {
         pageHtml = renderPengaduanView(state);
@@ -72,17 +118,20 @@ function renderApp() {
         pageHtml = renderProfileView(state);
     }
 
+    const bottomNavHtml = renderBottomNav(state.activeTab, state.user);
+    const hasBottomDock = bottomNavHtml !== '';
+
     rootEl.innerHTML = `
         ${renderHeader(state)}
 
         <main class="flex-1 relative flex flex-col justify-between">
             ${renderDecorativeFlowers()}
 
-            <section class="flex-1 w-full px-4 sm:px-20 md:px-24 lg:px-28 xl:px-36 pt-6 sm:pt-9 pb-24 sm:pb-4 flex flex-col justify-center">
+            <section class="flex-1 w-full px-4 sm:px-20 md:px-24 lg:px-28 xl:px-36 pt-6 sm:pt-9 ${hasBottomDock ? 'pb-24 sm:pb-4' : 'pb-10'} flex flex-col justify-center">
                 ${pageHtml}
             </section>
 
-            ${renderBottomNav(state.activeTab)}
+            ${bottomNavHtml}
         </main>
 
         ${renderModal(state)}
@@ -90,20 +139,6 @@ function renderApp() {
 }
 
 subscribe(renderApp);
-
-function syncUrlToTab(tab, replace = false) {
-    const targetPath = TAB_PATH_MAP[tab] || '/pilih-peran';
-    if (window.location.pathname !== targetPath) {
-        const method = replace ? 'replaceState' : 'pushState';
-        window.history[method]({ tab }, '', targetPath);
-    }
-}
-
-function getTabFromPath(pathname) {
-    if (pathname.includes('hasil-role')) return 'hasil-role';
-    if (pathname.includes('pengaduan')) return 'pengaduan';
-    return 'pilih-peran';
-}
 
 async function loadDevUsersIfLocal() {
     if (!isLocal) return;
@@ -197,24 +232,101 @@ async function loadComplaintContext(force = false) {
     }
 }
 
+async function loadAsprakData(force = false) {
+    if (state.asprak.loading || (state.asprak.loaded && !force)) return;
+    state.asprak.loading = true;
+    state.asprak.error = '';
+    renderApp();
+
+    try {
+        const [teamsRes, complaintsRes] = await Promise.allSettled([
+            fetchTeams(),
+            fetchComplaints(),
+        ]);
+
+        if (teamsRes.status === 'fulfilled') {
+            state.asprak.teams = Array.isArray(teamsRes.value?.data) ? teamsRes.value.data : [];
+        } else {
+            state.asprak.error = formatApiError(teamsRes.reason, 'Gagal memuat daftar tim bimbingan PAD.');
+        }
+
+        if (complaintsRes.status === 'fulfilled') {
+            state.asprak.complaints = Array.isArray(complaintsRes.value?.data) ? complaintsRes.value.data : [];
+        }
+
+        if (!state.asprak.projectForm.team_id && state.asprak.teams.length > 0) {
+            prefillAsprakProjectForm(state.asprak.teams[0].id);
+        }
+
+        state.asprak.loaded = true;
+    } finally {
+        state.asprak.loading = false;
+        renderApp();
+    }
+}
+
+async function loadAsprakComplaintById(complaintId) {
+    state.asprak.detailComplaintLoading = true;
+    state.asprak.detailComplaint = null;
+    renderApp();
+
+    try {
+        const res = await fetchComplaintDetail(complaintId);
+        state.asprak.detailComplaint = res?.data || null;
+    } catch {
+        state.asprak.detailComplaint = null;
+    } finally {
+        state.asprak.detailComplaintLoading = false;
+        renderApp();
+    }
+}
+
+function prefillAsprakProjectForm(teamId) {
+    const team = state.asprak.teams.find((t) => Number(t.id) === Number(teamId));
+    if (!team) {
+        state.asprak.projectForm = {
+            team_id: teamId ? Number(teamId) : null,
+            project_name: '',
+            project_owner_name: '',
+            project_associate: '',
+        };
+        return;
+    }
+
+    state.asprak.projectForm = {
+        team_id: Number(team.id),
+        project_name: team.project?.project_name || '',
+        project_owner_name: team.project?.owner_display_name || team.project?.owner?.name || '',
+        project_associate: team.project?.project_associate || '',
+    };
+}
+
 async function loadActiveTabData(force = false) {
     if (!state.user) return;
-    if (state.activeTab === 'hasil-role') {
+    if (state.activeTab === 'asprak-dashboard' || state.activeTab === 'asprak-project') {
+        await loadAsprakData(force);
+    } else if (state.activeTab === 'asprak-complaint') {
+        await loadAsprakData(force);
+        const targetId = state.asprak.detailComplaint?.id || state.initialComplaintId;
+        if (targetId) {
+            await loadAsprakComplaintById(targetId);
+        }
+    } else if (state.activeTab === 'dashboard' || state.activeTab === 'hasil-role') {
         await loadMyTeam(force);
     } else if (state.activeTab === 'pengaduan') {
         await loadComplaintContext(force);
-    } else {
+    } else if (state.activeTab === 'pilih-peran') {
         await loadProfiling(force);
     }
 }
 
-async function navigateToTab(tab, pushHistory = true) {
+async function navigateToTab(tab, pushHistory = true, extraId = null) {
     state.activeTab = tab;
     state.profileDropdownOpen = false;
     state.profiling.openRoleDropdown = null;
     state.complaint.dropdownOpen = false;
     if (pushHistory) {
-        syncUrlToTab(tab);
+        syncUrlToTab(tab, false, extraId);
     }
     renderApp();
     await loadActiveTabData();
@@ -230,7 +342,27 @@ async function hydrateAuthenticatedSession(token) {
         throw new Error('Profil pengguna tidak ditemukan.');
     }
 
-    // Load profiling & team context so header identity + active tab stay synchronized
+    const userRole = String(state.user.user_role || state.user.role || 'student').toLowerCase();
+
+    if (state.activeTab === 'home' || state.activeTab === 'landing' || state.activeTab === 'access-blocked') {
+        state.activeTab = resolveHomeTabForUser(state.user);
+    }
+
+    if (userRole === 'assistant') {
+        if (!state.activeTab.startsWith('asprak-')) {
+            state.activeTab = 'asprak-dashboard';
+        }
+        await loadAsprakData(true);
+        if (state.activeTab === 'asprak-complaint' && state.initialComplaintId) {
+            await loadAsprakComplaintById(state.initialComplaintId);
+        }
+        return;
+    }
+
+    if (state.activeTab.startsWith('asprak-')) {
+        state.activeTab = 'dashboard';
+    }
+
     await Promise.allSettled([
         loadProfiling(true),
         loadMyTeam(true),
@@ -242,12 +374,12 @@ async function boot() {
     setUnauthorizedHandler(() => {
         resetSessionState();
         state.modal = null;
+        state.activeTab = 'landing';
         renderApp();
         loadDevUsersIfLocal();
     });
 
     try {
-        // Check if returning from Google SSO redirect (?code=...)
         const params = new URLSearchParams(window.location.search);
         const oauthCode = params.get('code');
         if (oauthCode && window.location.pathname === '/auth/sso-return') {
@@ -257,12 +389,21 @@ async function boot() {
                 const redirectUri = `${window.location.origin}/auth/sso-return`;
                 const cbRes = await exchangeGoogleCallback({ code: oauthCode, redirect_uri: redirectUri });
                 if (cbRes?.token) {
-                    window.history.replaceState({}, '', '/pilih-peran');
-                    state.activeTab = 'pilih-peran';
+                    state.activeTab = 'home';
                     await hydrateAuthenticatedSession(cbRes.token);
+                    syncUrlToTab(state.activeTab, true);
                     return;
                 }
             } catch (error) {
+                if (error?.response?.status === 403) {
+                    state.accessBlocked = {
+                        email: params.get('email') || 'pengguna@gmail.com',
+                        message: formatApiError(error, 'Akses ditolak, hanya email @mail.ugm.ac.id yang diizinkan.'),
+                    };
+                    state.activeTab = 'access-blocked';
+                    syncUrlToTab('access-blocked', true);
+                    return;
+                }
                 state.dev.error = formatApiError(error, 'Autentikasi Google SSO gagal.');
             } finally {
                 state.authLoading = false;
@@ -270,7 +411,7 @@ async function boot() {
         }
 
         const existingToken = getStoredToken();
-        if (existingToken) {
+        if (existingToken && state.activeTab !== 'access-blocked') {
             try {
                 await hydrateAuthenticatedSession(existingToken);
                 return;
@@ -280,6 +421,9 @@ async function boot() {
             }
         }
 
+        if (state.activeTab === 'home') {
+            state.activeTab = 'landing';
+        }
         await loadDevUsersIfLocal();
     } finally {
         state.booting = false;
@@ -373,7 +517,7 @@ function updateNimHelperDom(nimValue) {
     }
 }
 
-// --- Event Listeners ---
+// --- Input Handlers ---
 document.addEventListener('input', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
@@ -392,14 +536,28 @@ document.addEventListener('input', (event) => {
         state.complaint.form.reason = target.value;
     } else if (field === 'complaint-description') {
         state.complaint.form.description = target.value;
+    } else if (field === 'asprak-project-name') {
+        state.asprak.projectForm.project_name = target.value;
+    } else if (field === 'asprak-project-owner') {
+        state.asprak.projectForm.project_owner_name = target.value;
+    } else if (field === 'asprak-project-associate') {
+        state.asprak.projectForm.project_associate = target.value;
     }
 });
 
 document.addEventListener('change', async (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
 
     const action = target.dataset.action;
+
+    if (action === 'asprak-select-project-team' && target instanceof HTMLSelectElement) {
+        prefillAsprakProjectForm(Number(target.value));
+        renderApp();
+        return;
+    }
+
+    if (!(target instanceof HTMLInputElement)) return;
 
     if (action === 'toggle-skill') {
         const skillId = Number(target.dataset.skillId);
@@ -504,11 +662,11 @@ document.addEventListener('change', async (event) => {
     }
 });
 
+// --- Click Actions ---
 document.addEventListener('click', async (event) => {
     const rawTarget = event.target;
     if (!(rawTarget instanceof Element)) return;
 
-    // Close open dropdowns when clicking outside them
     const clickedInsideDropdown = rawTarget.closest('[data-dropdown-panel]') ||
         rawTarget.closest('[data-action="toggle-profile-menu"]') ||
         rawTarget.closest('[data-action="toggle-role-dropdown"]') ||
@@ -521,7 +679,6 @@ document.addEventListener('click', async (event) => {
         renderApp();
     }
 
-    // Backdrop click closes modal
     if (rawTarget.dataset?.modalBackdrop === 'true') {
         state.modal = null;
         renderApp();
@@ -541,13 +698,17 @@ document.addEventListener('click', async (event) => {
             renderApp();
             break;
 
+        case 'nav-home':
+            await navigateToTab(resolveHomeTabForUser(state.user));
+            break;
+
         case 'go-profile':
             state.profiling.step = 'profile';
             await navigateToTab('pilih-peran');
             break;
 
         case 'nav-tab': {
-            const tab = actionEl.dataset.tab || 'pilih-peran';
+            const tab = actionEl.dataset.tab || 'dashboard';
             await navigateToTab(tab);
             break;
         }
@@ -561,13 +722,36 @@ document.addEventListener('click', async (event) => {
             try {
                 await logoutApi();
             } catch {
-                // Always clear local token even if server token is already revoked
+                // Always clear local token
             }
             clearStoredToken();
             resetSessionState();
             state.modal = null;
+            state.activeTab = 'landing';
+            syncUrlToTab('landing', true);
             renderApp();
             await loadDevUsersIfLocal();
+            break;
+
+        case 'toggle-dev-drawer':
+            state.devDrawerOpen = !state.devDrawerOpen;
+            renderApp();
+            break;
+
+        case 'simulate-403-blocked':
+            state.accessBlocked = {
+                email: 'hudajawor123@gmail.com',
+                message: 'Akses ditolak, hanya email dengan domain @mail.ugm.ac.id yang diizinkan untuk login.',
+            };
+            state.activeTab = 'access-blocked';
+            syncUrlToTab('access-blocked');
+            renderApp();
+            break;
+
+        case 'back-to-landing':
+            state.activeTab = 'landing';
+            syncUrlToTab('landing');
+            renderApp();
             break;
 
         case 'sso-login':
@@ -868,6 +1052,75 @@ document.addEventListener('click', async (event) => {
             break;
         }
 
+        // --- Asisten Praktikum Actions ---
+        case 'asprak-open-team': {
+            const teamId = Number(actionEl.dataset.teamId);
+            state.asprak.selectedTeamId = teamId;
+            state.modal = { type: 'asprak-team-detail' };
+            renderApp();
+            break;
+        }
+
+        case 'asprak-open-complaint': {
+            const complaintId = Number(actionEl.dataset.complaintId);
+            state.modal = null;
+            state.initialComplaintId = complaintId;
+            state.activeTab = 'asprak-complaint';
+            syncUrlToTab('asprak-complaint', false, complaintId);
+            renderApp();
+            await loadAsprakComplaintById(complaintId);
+            break;
+        }
+
+        case 'asprak-review-complaint': {
+            const complaintId = Number(actionEl.dataset.complaintId);
+            state.asprak.reviewingId = complaintId;
+            renderApp();
+            try {
+                const res = await reviewComplaint(complaintId);
+                const updated = res?.data || null;
+                if (updated) {
+                    state.asprak.detailComplaint = updated;
+                    state.asprak.complaints = state.asprak.complaints.map((item) =>
+                        Number(item.id) === complaintId ? updated : item
+                    );
+                }
+            } catch (error) {
+                state.modal = {
+                    type: 'alert',
+                    title: 'Gagal Menandai Tinjauan',
+                    subtitle: formatApiError(error, 'Tidak dapat memperbarui status tinjauan.'),
+                    buttonLabel: 'Tutup',
+                };
+            } finally {
+                state.asprak.reviewingId = null;
+                renderApp();
+            }
+            break;
+        }
+
+        case 'asprak-go-project': {
+            const requestedTeamId = actionEl.dataset.teamId ? Number(actionEl.dataset.teamId) : null;
+            state.modal = null;
+            state.profileDropdownOpen = false;
+            await loadAsprakData();
+            const fallbackId = requestedTeamId || state.asprak.projectForm.team_id || state.asprak.teams[0]?.id || null;
+            prefillAsprakProjectForm(fallbackId);
+            state.activeTab = 'asprak-project';
+            syncUrlToTab('asprak-project');
+            renderApp();
+            break;
+        }
+
+        case 'asprak-save-project':
+            await executeSaveAsprakProject();
+            break;
+
+        case 'asprak-back-dashboard':
+            state.modal = null;
+            await navigateToTab('asprak-dashboard');
+            break;
+
         case 'close-modal': {
             const nextTab = actionEl.dataset.nextTab;
             state.modal = null;
@@ -895,10 +1148,17 @@ document.addEventListener('keydown', (event) => {
 });
 
 window.addEventListener('popstate', () => {
-    if (!state.user) return;
     const tab = getTabFromPath(window.location.pathname);
-    if (tab !== state.activeTab) {
-        navigateToTab(tab, false);
+    if (!state.user) {
+        if (tab === 'access-blocked' || tab === 'landing') {
+            state.activeTab = tab;
+            renderApp();
+        }
+        return;
+    }
+    const targetTab = tab === 'home' ? resolveHomeTabForUser(state.user) : tab;
+    if (targetTab !== state.activeTab) {
+        navigateToTab(targetTab, false);
     }
 });
 
@@ -913,8 +1173,10 @@ async function loginViaDevToken(email, role) {
         }
         resetSessionState();
         state.modal = null;
+        state.activeTab = 'home';
         await hydrateAuthenticatedSession(res.token);
         state.profiling.step = 'profile';
+        syncUrlToTab(state.activeTab, true);
         renderApp();
     } catch (error) {
         state.dev.error = formatApiError(error, 'Gagal login dengan akun uji lokal.');
@@ -1007,6 +1269,56 @@ async function executeSendComplaint() {
         };
     } finally {
         state.complaint.submitting = false;
+        renderApp();
+    }
+}
+
+async function executeSaveAsprakProject() {
+    const { team_id, project_name, project_owner_name, project_associate } = state.asprak.projectForm;
+    const missing = [];
+    if (!team_id) missing.push('Pilih kelompok bimbingan terlebih dahulu.');
+    if (!String(project_name || '').trim()) missing.push('1. Nama Proyek wajib diisi.');
+
+    if (missing.length > 0) {
+        state.modal = {
+            type: 'alert',
+            title: 'Data Proyek Belum Lengkap',
+            subtitle: 'Mohon lengkapi informasi proyek terlebih dahulu.',
+            details: missing,
+            buttonLabel: 'Siyapp',
+        };
+        renderApp();
+        return;
+    }
+
+    state.asprak.projectSubmitting = true;
+    renderApp();
+
+    try {
+        await saveTeamProject(Number(team_id), {
+            project_name: String(project_name).trim(),
+            project_owner_name: String(project_owner_name || '').trim() || null,
+            project_associate: String(project_associate || '').trim() || null,
+        });
+
+        await loadAsprakData(true);
+
+        state.modal = {
+            type: 'alert',
+            title: 'Detail Proyek Tersimpan!',
+            subtitle: `Metadata proyek untuk Kelompok ${team_id} berhasil disimpan.`,
+            buttonLabel: 'Kembali ke Daftar Tim',
+            onCloseTab: 'asprak-dashboard',
+        };
+    } catch (error) {
+        state.modal = {
+            type: 'alert',
+            title: 'Gagal Menyimpan Proyek',
+            subtitle: formatApiError(error, 'Terjadi kendala saat menyimpan detail proyek.'),
+            buttonLabel: 'Siyapp',
+        };
+    } finally {
+        state.asprak.projectSubmitting = false;
         renderApp();
     }
 }
