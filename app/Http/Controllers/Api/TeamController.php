@@ -267,9 +267,8 @@ class TeamController extends Controller
     public function assignSupervisor(Request $request, int $teamId): JsonResponse
     {
         $validated = $request->validate([
-            'supervisor_id' => ['required', 'integer', 'exists:users,id'],
+            'supervisor_id' => ['nullable', 'integer', 'exists:users,id'],
         ], [
-            'supervisor_id.required' => 'Asisten Praktikum (supervisor) wajib dipilih.',
             'supervisor_id.exists' => 'Asisten Praktikum yang dipilih tidak ditemukan.',
         ]);
 
@@ -281,7 +280,22 @@ class TeamController extends Controller
             ], 404);
         }
 
-        $supervisor = User::find($validated['supervisor_id']);
+        $supervisorId = $validated['supervisor_id'] ?? null;
+        if ($supervisorId === null) {
+            $team->supervisor = null;
+            $team->save();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Pembimbing kelompok berhasil dilepas.',
+                'data' => [
+                    'team_id' => $team->id,
+                    'supervisor' => null,
+                ],
+            ]);
+        }
+
+        $supervisor = User::find($supervisorId);
         $supRole = $supervisor->user_role instanceof UserRole ? $supervisor->user_role->value : (string) $supervisor->user_role;
         $normalized = UserRole::normalize($supRole);
 

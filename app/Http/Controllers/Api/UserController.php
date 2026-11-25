@@ -23,7 +23,7 @@ class UserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = User::query()->with('studentProfile');
+        $query = User::query()->with(['studentProfile.role1', 'evaluation']);
 
         if ($request->filled('user_role') || $request->filled('role')) {
             $rawRole = (string) ($request->input('user_role') ?? $request->input('role'));
@@ -42,6 +42,7 @@ class UserController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('nip', 'like', "%{$search}%")
                     ->orWhereHas('studentProfile', function ($sp) use ($search) {
                         $sp->where('nim', 'like', "%{$search}%");
                     });
@@ -92,6 +93,7 @@ class UserController extends Controller
                 'lecturers' => ['required', 'array', 'min:1'],
                 'lecturers.*.email' => ['required', 'email', 'max:128'],
                 'lecturers.*.name' => ['nullable', 'string', 'max:128'],
+                'lecturers.*.nip' => ['nullable', 'string', 'max:50'],
                 'lecturers.*.role' => ['nullable', 'string'],
                 'lecturers.*.user_role' => ['nullable', 'string'],
             ]);
@@ -102,16 +104,22 @@ class UserController extends Controller
                 foreach ($lecturersInput as $lecturer) {
                     $email = strtolower(trim((string) $lecturer['email']));
                     $name = isset($lecturer['name']) ? (string) $lecturer['name'] : null;
+                    $nip = isset($lecturer['nip']) && trim((string) $lecturer['nip']) !== '' ? trim((string) $lecturer['nip']) : null;
                     $rawRole = (string) ($lecturer['role'] ?? $lecturer['user_role'] ?? 'admin');
                     $role = UserRole::normalize($rawRole) ?? UserRole::Admin->value;
 
+                    $attributes = [
+                        'name' => $name,
+                        'user_role' => $role,
+                        'status' => 'active',
+                    ];
+                    if ($nip !== null) {
+                        $attributes['nip'] = $nip;
+                    }
+
                     $user = User::updateOrCreate(
                         ['email' => $email],
-                        [
-                            'name' => $name,
-                            'user_role' => $role,
-                            'status' => 'active',
-                        ]
+                        $attributes
                     );
                     $results[] = $user;
                 }
@@ -129,23 +137,30 @@ class UserController extends Controller
         $request->validate([
             'email' => ['required', 'email', 'max:128'],
             'name' => ['nullable', 'string', 'max:128'],
+            'nip' => ['nullable', 'string', 'max:50'],
             'role' => ['nullable', 'string'],
             'user_role' => ['nullable', 'string'],
         ]);
 
         $email = strtolower(trim((string) $request->input('email')));
         $name = $request->input('name');
+        $nip = $request->filled('nip') ? trim((string) $request->input('nip')) : null;
         $rawRole = (string) ($request->input('role') ?? $request->input('user_role') ?? 'admin');
         $role = UserRole::normalize($rawRole) ?? UserRole::Admin->value;
 
-        $user = DB::transaction(function () use ($email, $name, $role) {
+        $user = DB::transaction(function () use ($email, $name, $nip, $role) {
+            $attributes = [
+                'name' => $name,
+                'user_role' => $role,
+                'status' => 'active',
+            ];
+            if ($nip !== null) {
+                $attributes['nip'] = $nip;
+            }
+
             return User::updateOrCreate(
                 ['email' => $email],
-                [
-                    'name' => $name,
-                    'user_role' => $role,
-                    'status' => 'active',
-                ]
+                $attributes
             );
         });
 
@@ -258,7 +273,7 @@ class UserController extends Controller
     /**
      * Remove email from whitelist (only permitted if role is not locked).
      */
-    public function destroy(int|string $id): JsonResponse
+    public function destroy(Request $request, int|string $id): JsonResponse
     {
         $user = User::with(['studentProfile.team', 'evaluation'])->find($id);
 
@@ -267,6 +282,23 @@ class UserController extends Controller
                 'status' => 'error',
                 'message' => 'Pengguna tidak ditemukan dalam sistem.',
             ], 404);
+        }
+
+        $actor = $request->user();
+        if ($actor && (int) $actor->id === (int) $user->id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak dapat menghapus akun Anda sendiri.',
+            ], 422);
+        }
+
+        $actorRole = $actor?->user_role instanceof UserRole ? $actor->user_role->value : (string) ($actor?->user_role ?? '');
+        $targetRole = $user->user_role instanceof UserRole ? $user->user_role->value : (string) $user->user_role;
+        if (UserRole::normalize($actorRole) === UserRole::Lecturer->value && UserRole::normalize($targetRole) === UserRole::Admin->value) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Akses ditolak. Dosen Pengampu tidak dapat mencabut akun Master Admin.',
+            ], 403);
         }
 
         // Cek apakah role telah dikunci di evaluasi peran

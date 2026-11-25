@@ -1,47 +1,83 @@
 import {
+    assignTeamSupervisor,
+    autoGroupTeams,
     clearStoredToken,
+    deleteUser,
     devFetchUsers,
     devGenerateToken,
     devSeedSampleData,
     downloadComplaintEvidence,
     exchangeGoogleCallback,
+    fetchAssistants,
     fetchComplaintDetail,
     fetchComplaints,
+    fetchEvaluationDetail,
+    fetchEvaluations,
     fetchMe,
     fetchMyTeam,
     fetchProfilingConfig,
+    fetchRoles,
+    fetchSettings,
     fetchTeams,
     fetchTeammates,
+    fetchUsers,
     getGoogleRedirect,
     getStoredToken,
+    importWhitelistFile,
+    initiateLecturer,
+    lockAllEvaluations,
     logoutApi,
+    overrideStudentRole,
+    resetStudentRole,
+    resetTeamGrouping,
     reviewComplaint,
     saveTeamProject,
     setStoredToken,
     setUnauthorizedHandler,
+    storeExclusiveTeam,
+    storeWhitelistUser,
     submitComplaint,
     submitStudentProfile,
+    unlockAllEvaluations,
+    updateEvaluationNote,
+    updateSettings,
+    updateUserRole,
     uploadStudentAvatar,
 } from './api.js';
 import { resetSessionState, state, subscribe } from './state.js';
 import {
+    downloadCsvFile,
     escapeHtml,
     formatApiError,
+    formatIndoDateRange,
+    formatIsoToIndoDate,
     NIM_REGEX,
     parseNimStatus,
     roleDisplayTag,
+    roleFullTitle,
 } from './utils.js';
 import { renderAsprakView } from './views/asprakView.js';
 import { renderAuthScreen } from './views/authView.js';
 import { renderDashboardView } from './views/dashboardView.js';
+import { renderDosenView } from './views/dosenView.js';
 import { renderHasilRoleView } from './views/hasilRoleView.js';
-import { renderBottomNav, renderDecorativeFlowers, renderHeader } from './views/layout.js';
+import {
+    isGreenPortalTab,
+    renderBottomNav,
+    renderDecorativeFlowers,
+    renderGreenSideGrids,
+    renderHeader,
+} from './views/layout.js';
+import { renderMasterAdminView } from './views/masterAdminView.js';
 import { renderModal } from './views/modals.js';
 import { renderPengaduanView } from './views/pengaduanView.js';
+import { renderPractitionerView } from './views/practitionerView.js';
 import { renderProfileView } from './views/profileView.js';
 
 const rootEl = document.getElementById('sipad-app');
 const isLocal = Boolean(window.__SIPAD_CONFIG__?.isLocal);
+
+const STUDENT_TABS = ['dashboard', 'pilih-peran', 'hasil-role', 'pengaduan'];
 
 const TAB_PATH_MAP = {
     dashboard: '/dashboard',
@@ -50,18 +86,51 @@ const TAB_PATH_MAP = {
     pengaduan: '/pengaduan',
     'asprak-dashboard': '/asisten',
     'asprak-project': '/asisten/input-proyek',
+    'master-admin': '/master-admin',
+    'dosen-control': '/dosen/control',
+    'dosen-user': '/dosen/user',
+    'dosen-bypass': '/dosen/bypass',
+    'dosen-complaints': '/dosen/pengaduan',
+    'practitioner-students': '/praktisi/mahasiswa',
+    'practitioner-complaints': '/praktisi/pengaduan',
+    'practitioner-project': '/praktisi/input-proyek',
     landing: '/landing',
     'access-blocked': '/auth/access-blocked',
 };
 
 function resolveHomeTabForUser(user) {
     const role = String(user?.user_role || user?.role || 'student').toLowerCase();
-    return role === 'assistant' ? 'asprak-dashboard' : 'dashboard';
+    if (role === 'admin') return 'master-admin';
+    if (role === 'lecturer') return 'dosen-control';
+    if (role === 'practitioner') return 'practitioner-students';
+    if (role === 'assistant') return 'asprak-dashboard';
+    return 'dashboard';
+}
+
+function isTabAllowedForRole(userRole, tab) {
+    const role = String(userRole || 'student').toLowerCase();
+    if (tab === 'landing' || tab === 'access-blocked') return true;
+    if (STUDENT_TABS.includes(tab)) return role === 'student';
+    if (tab === 'master-admin') return role === 'admin';
+    if (tab.startsWith('dosen-')) return role === 'lecturer' || role === 'admin';
+    if (tab.startsWith('practitioner-')) return role === 'practitioner' || role === 'lecturer' || role === 'admin';
+    if (tab.startsWith('asprak-')) return role === 'assistant';
+    return false;
 }
 
 function getTabFromPath(pathname) {
     if (pathname.includes('/auth/access-blocked')) return 'access-blocked';
     if (pathname === '/login' || pathname === '/landing') return 'landing';
+    if (pathname.startsWith('/master-admin')) return 'master-admin';
+    if (pathname.includes('/dosen/pengaduan/') || pathname.includes('/lecturer/pengaduan/')) return 'dosen-complaint-detail';
+    if (pathname.includes('/dosen/pengaduan')) return 'dosen-complaints';
+    if (pathname.includes('/dosen/bypass') || pathname.includes('/lecturer/bypass')) return 'dosen-bypass';
+    if (pathname.includes('/dosen/user') || pathname.includes('/dosen/access') || pathname.includes('/lecturer/access')) return 'dosen-user';
+    if (pathname.startsWith('/dosen') || pathname.startsWith('/lecturer')) return 'dosen-control';
+    if (pathname.includes('/praktisi/pengaduan/')) return 'practitioner-complaint-detail';
+    if (pathname.includes('/praktisi/pengaduan') || pathname.includes('/practitioner/complaint')) return 'practitioner-complaints';
+    if (pathname.includes('/praktisi/input-proyek')) return 'practitioner-project';
+    if (pathname.startsWith('/praktisi') || pathname.startsWith('/practitioner')) return 'practitioner-students';
     if (pathname.includes('/asisten/input-proyek') || pathname.includes('/asprak/input-proyek')) return 'asprak-project';
     if (pathname.includes('/asisten/pengaduan/')) return 'asprak-complaint';
     if (pathname.startsWith('/asisten') || pathname.startsWith('/asprak')) return 'asprak-dashboard';
@@ -76,6 +145,10 @@ function syncUrlToTab(tab, replace = false, extraId = null) {
     let targetPath = TAB_PATH_MAP[tab];
     if (tab === 'asprak-complaint' && extraId) {
         targetPath = `/asisten/pengaduan/${extraId}`;
+    } else if (tab === 'dosen-complaint-detail' && extraId) {
+        targetPath = `/dosen/pengaduan/${extraId}`;
+    } else if (tab === 'practitioner-complaint-detail' && extraId) {
+        targetPath = `/praktisi/pengaduan/${extraId}`;
     }
     if (!targetPath) return;
 
@@ -88,11 +161,13 @@ function syncUrlToTab(tab, replace = false, extraId = null) {
 function renderApp() {
     if (!rootEl) return;
 
+    const isGreen = isGreenPortalTab(state.activeTab);
+
     if (state.booting) {
         rootEl.innerHTML = `
             <div class="min-h-dvh flex items-center justify-center bg-white">
                 <div class="flex flex-col items-center gap-3 text-[#486284]">
-                    <div class="w-9 h-9 rounded-full border-4 border-[#C0DDF9] border-t-[#0773DF] animate-spin"></div>
+                    <div class="w-9 h-9 rounded-full border-4 ${isGreen ? 'border-[#C5E9CD] border-t-[#308242]' : 'border-[#C0DDF9] border-t-[#0773DF]'} animate-spin"></div>
                     <span class="text-sm font-semibold tracking-wide">Menyiapkan Portal SIPAD...</span>
                 </div>
             </div>
@@ -106,7 +181,13 @@ function renderApp() {
     }
 
     let pageHtml = '';
-    if (state.activeTab === 'asprak-dashboard' || state.activeTab === 'asprak-complaint' || state.activeTab === 'asprak-project') {
+    if (state.activeTab === 'master-admin') {
+        pageHtml = renderMasterAdminView(state);
+    } else if (state.activeTab.startsWith('dosen-')) {
+        pageHtml = renderDosenView(state);
+    } else if (state.activeTab.startsWith('practitioner-')) {
+        pageHtml = renderPractitionerView(state);
+    } else if (state.activeTab.startsWith('asprak-')) {
         pageHtml = renderAsprakView(state);
     } else if (state.activeTab === 'dashboard') {
         pageHtml = renderDashboardView(state);
@@ -120,14 +201,20 @@ function renderApp() {
 
     const bottomNavHtml = renderBottomNav(state.activeTab, state.user);
     const hasBottomDock = bottomNavHtml !== '';
+    const isPractitionerSplit = state.activeTab === 'practitioner-students' && Boolean(state.practitioner.selectedUserId);
+    const paddingClasses = isPractitionerSplit
+        ? `px-4 sm:px-8 lg:px-10 xl:px-14 pt-6 sm:pt-9 ${hasBottomDock ? 'pb-24 sm:pb-4' : 'pb-10'}`
+        : isGreen
+            ? `px-4 sm:px-14 md:px-20 lg:px-28 xl:px-40 pt-6 sm:pt-9 ${hasBottomDock ? 'pb-24 sm:pb-4' : 'pb-10'}`
+            : `px-4 sm:px-20 md:px-24 lg:px-28 xl:px-36 pt-6 sm:pt-9 ${hasBottomDock ? 'pb-24 sm:pb-4' : 'pb-10'}`;
 
     rootEl.innerHTML = `
         ${renderHeader(state)}
 
         <main class="flex-1 relative flex flex-col justify-between">
-            ${renderDecorativeFlowers()}
+            ${isGreen ? renderGreenSideGrids() : renderDecorativeFlowers()}
 
-            <section class="flex-1 w-full px-4 sm:px-20 md:px-24 lg:px-28 xl:px-36 pt-6 sm:pt-9 ${hasBottomDock ? 'pb-24 sm:pb-4' : 'pb-10'} flex flex-col justify-center">
+            <section class="flex-1 w-full ${paddingClasses} flex flex-col justify-center">
                 ${pageHtml}
             </section>
 
@@ -301,9 +388,249 @@ function prefillAsprakProjectForm(teamId) {
     };
 }
 
+async function loadMasterAdminData(force = false) {
+    if (state.masterAdmin.loading || (state.masterAdmin.loaded && !force)) return;
+    state.masterAdmin.loading = true;
+    state.masterAdmin.error = '';
+    renderApp();
+
+    try {
+        const res = await fetchUsers({ all: true });
+        const allUsers = Array.isArray(res?.data) ? res.data : [];
+        state.masterAdmin.lecturers = allUsers.filter(
+            (u) => u.user_role === 'lecturer' || u.user_role === 'admin'
+        );
+        state.masterAdmin.loaded = true;
+    } catch (error) {
+        state.masterAdmin.error = formatApiError(error, 'Gagal memuat daftar Dosen Admin.');
+    } finally {
+        state.masterAdmin.loading = false;
+        renderApp();
+    }
+}
+
+function prefillGreenProjectForm(targetFormObj, teams, teamId) {
+    const team = teams.find((t) => Number(t.id) === Number(teamId));
+    if (!team) {
+        targetFormObj.team_id = teamId ? Number(teamId) : null;
+        targetFormObj.project_name = '';
+        targetFormObj.project_owner_name = '';
+        targetFormObj.project_associate = '';
+        return;
+    }
+    targetFormObj.team_id = Number(team.id);
+    targetFormObj.project_name = team.project?.project_name || '';
+    targetFormObj.project_owner_name = team.project?.owner_display_name || team.project?.owner?.name || '';
+    targetFormObj.project_associate = team.project?.project_associate || '';
+}
+
+async function loadPractitionerData(force = false, silent = false) {
+    if (state.practitioner.loading || (state.practitioner.loaded && !force)) return;
+    if (!silent) {
+        state.practitioner.loading = true;
+        state.practitioner.error = '';
+        renderApp();
+    }
+
+    try {
+        const [evalRes, rolesRes, complaintsRes, teamsRes] = await Promise.allSettled([
+            fetchEvaluations({
+                search: state.practitioner.search || undefined,
+                page: state.practitioner.page || 1,
+                per_page: 6,
+            }),
+            fetchRoles(),
+            fetchComplaints(),
+            fetchTeams(),
+        ]);
+
+        if (evalRes.status === 'fulfilled') {
+            state.practitioner.students = Array.isArray(evalRes.value?.data) ? evalRes.value.data : [];
+            state.practitioner.meta = evalRes.value?.meta || { current_page: 1, last_page: 1, per_page: 6, total: state.practitioner.students.length };
+        } else {
+            state.practitioner.error = formatApiError(evalRes.reason, 'Gagal memuat data mahasiswa.');
+        }
+
+        if (rolesRes.status === 'fulfilled') {
+            state.practitioner.roles = Array.isArray(rolesRes.value?.data) ? rolesRes.value.data : [];
+        }
+        if (complaintsRes.status === 'fulfilled') {
+            state.practitioner.complaints = Array.isArray(complaintsRes.value?.data) ? complaintsRes.value.data : [];
+        }
+        if (teamsRes.status === 'fulfilled') {
+            state.practitioner.teams = Array.isArray(teamsRes.value?.data) ? teamsRes.value.data : [];
+            if (!state.practitioner.projectForm.team_id && state.practitioner.teams.length > 0) {
+                prefillGreenProjectForm(state.practitioner.projectForm, state.practitioner.teams, state.practitioner.teams[0].id);
+            }
+        }
+
+        state.practitioner.loaded = true;
+    } finally {
+        state.practitioner.loading = false;
+        renderApp();
+    }
+}
+
+async function loadPractitionerStudentDetail(userId) {
+    state.practitioner.selectedUserId = Number(userId);
+    state.practitioner.detailLoading = true;
+    state.practitioner.detail = null;
+    state.practitioner.openRoleDropdown = null;
+    renderApp();
+
+    try {
+        const res = await fetchEvaluationDetail(userId);
+        const detail = res?.data || null;
+        state.practitioner.detail = detail;
+        if (detail) {
+            const evalData = detail.evaluation || {};
+            const st = detail.student || {};
+            state.practitioner.noteDraft = evalData.evaluation_note || '';
+            state.practitioner.overrideEnabled = Boolean(evalData.is_overridden);
+            state.practitioner.overrideRole1Id = evalData.final_role_id || st.role_1?.id || state.practitioner.roles[0]?.id || null;
+            state.practitioner.overrideRole2Id = st.role_2?.id || null;
+        }
+    } catch (error) {
+        state.practitioner.selectedUserId = null;
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Memuat Detail',
+            subtitle: formatApiError(error, 'Data skillset mahasiswa tidak dapat diambil.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        state.practitioner.detailLoading = false;
+        renderApp();
+    }
+}
+
+async function loadPractitionerComplaintById(complaintId) {
+    state.practitioner.detailComplaintLoading = true;
+    state.practitioner.detailComplaint = null;
+    renderApp();
+    try {
+        const res = await fetchComplaintDetail(complaintId);
+        state.practitioner.detailComplaint = res?.data || null;
+    } catch {
+        state.practitioner.detailComplaint = null;
+    } finally {
+        state.practitioner.detailComplaintLoading = false;
+        renderApp();
+    }
+}
+
+async function loadDosenUsersOnly(silent = false) {
+    try {
+        const usersRes = await fetchUsers({
+            search: state.dosen.userSearch || undefined,
+            user_role: state.dosen.userRoleFilter || undefined,
+            page: state.dosen.userPage || 1,
+            per_page: 6,
+        });
+        state.dosen.users = Array.isArray(usersRes?.data) ? usersRes.data : [];
+        state.dosen.usersMeta = usersRes?.meta || { current_page: 1, last_page: 1, per_page: 6, total: state.dosen.users.length };
+    } catch (error) {
+        if (!silent) {
+            state.dosen.error = formatApiError(error, 'Gagal memuat daftar user.');
+        }
+    } finally {
+        renderApp();
+    }
+}
+
+async function loadDosenData(force = false) {
+    if (state.dosen.loading || (state.dosen.loaded && !force)) return;
+    state.dosen.loading = true;
+    state.dosen.error = '';
+    renderApp();
+
+    try {
+        const [settingsRes, rolesRes, evalAllRes, usersRes, allStudentsRes, teamsRes, assistantsRes, complaintsRes] = await Promise.allSettled([
+            fetchSettings(),
+            fetchRoles(),
+            fetchEvaluations({ per_page: 'all' }),
+            fetchUsers({
+                search: state.dosen.userSearch || undefined,
+                user_role: state.dosen.userRoleFilter || undefined,
+                page: state.dosen.userPage || 1,
+                per_page: 6,
+            }),
+            fetchUsers({ user_role: 'student', all: true }),
+            fetchTeams(),
+            fetchAssistants(),
+            fetchComplaints(),
+        ]);
+
+        if (settingsRes.status === 'fulfilled') {
+            state.dosen.settings = settingsRes.value?.data || null;
+        }
+        if (rolesRes.status === 'fulfilled') {
+            state.dosen.roles = Array.isArray(rolesRes.value?.data) ? rolesRes.value.data : [];
+        }
+        if (evalAllRes.status === 'fulfilled') {
+            state.dosen.evaluationsAll = Array.isArray(evalAllRes.value?.data) ? evalAllRes.value.data : [];
+        } else {
+            state.dosen.error = formatApiError(evalAllRes.reason, 'Gagal memuat data monitoring.');
+        }
+        if (usersRes.status === 'fulfilled') {
+            state.dosen.users = Array.isArray(usersRes.value?.data) ? usersRes.value.data : [];
+            state.dosen.usersMeta = usersRes.value?.meta || { current_page: 1, last_page: 1, per_page: 6, total: state.dosen.users.length };
+        }
+        if (allStudentsRes.status === 'fulfilled') {
+            state.dosen.allStudents = Array.isArray(allStudentsRes.value?.data) ? allStudentsRes.value.data : [];
+        }
+        if (teamsRes.status === 'fulfilled') {
+            state.dosen.teams = Array.isArray(teamsRes.value?.data) ? teamsRes.value.data : [];
+            if (!state.dosen.projectForm.team_id && state.dosen.teams.length > 0) {
+                prefillGreenProjectForm(state.dosen.projectForm, state.dosen.teams, state.dosen.teams[0].id);
+            }
+        }
+        if (assistantsRes.status === 'fulfilled') {
+            state.dosen.assistants = Array.isArray(assistantsRes.value?.data) ? assistantsRes.value.data : [];
+        }
+        if (complaintsRes.status === 'fulfilled') {
+            state.dosen.complaints = Array.isArray(complaintsRes.value?.data) ? complaintsRes.value.data : [];
+        }
+
+        state.dosen.loaded = true;
+    } finally {
+        state.dosen.loading = false;
+        renderApp();
+    }
+}
+
+async function loadDosenComplaintById(complaintId) {
+    state.dosen.detailComplaintLoading = true;
+    state.dosen.detailComplaint = null;
+    renderApp();
+    try {
+        const res = await fetchComplaintDetail(complaintId);
+        state.dosen.detailComplaint = res?.data || null;
+    } catch {
+        state.dosen.detailComplaint = null;
+    } finally {
+        state.dosen.detailComplaintLoading = false;
+        renderApp();
+    }
+}
+
 async function loadActiveTabData(force = false) {
     if (!state.user) return;
-    if (state.activeTab === 'asprak-dashboard' || state.activeTab === 'asprak-project') {
+    if (state.activeTab === 'master-admin') {
+        await loadMasterAdminData(force);
+    } else if (state.activeTab === 'practitioner-students' || state.activeTab === 'practitioner-complaints' || state.activeTab === 'practitioner-project') {
+        await loadPractitionerData(force);
+    } else if (state.activeTab === 'practitioner-complaint-detail') {
+        await loadPractitionerData(force);
+        const targetId = state.practitioner.detailComplaint?.id || state.initialComplaintId;
+        if (targetId) await loadPractitionerComplaintById(targetId);
+    } else if (state.activeTab === 'dosen-control' || state.activeTab === 'dosen-user' || state.activeTab === 'dosen-bypass' || state.activeTab === 'dosen-complaints') {
+        await loadDosenData(force);
+    } else if (state.activeTab === 'dosen-complaint-detail') {
+        await loadDosenData(force);
+        const targetId = state.dosen.detailComplaint?.id || state.initialComplaintId;
+        if (targetId) await loadDosenComplaintById(targetId);
+    } else if (state.activeTab === 'asprak-dashboard' || state.activeTab === 'asprak-project') {
         await loadAsprakData(force);
     } else if (state.activeTab === 'asprak-complaint') {
         await loadAsprakData(force);
@@ -321,10 +648,19 @@ async function loadActiveTabData(force = false) {
 }
 
 async function navigateToTab(tab, pushHistory = true, extraId = null) {
+    if (state.user) {
+        const userRole = String(state.user.user_role || state.user.role || 'student').toLowerCase();
+        if (!isTabAllowedForRole(userRole, tab)) {
+            tab = resolveHomeTabForUser(state.user);
+            extraId = null;
+        }
+    }
+
     state.activeTab = tab;
     state.profileDropdownOpen = false;
     state.profiling.openRoleDropdown = null;
     state.complaint.dropdownOpen = false;
+    state.practitioner.openRoleDropdown = null;
     if (pushHistory) {
         syncUrlToTab(tab, false, extraId);
     }
@@ -346,21 +682,15 @@ async function hydrateAuthenticatedSession(token) {
 
     if (state.activeTab === 'home' || state.activeTab === 'landing' || state.activeTab === 'access-blocked') {
         state.activeTab = resolveHomeTabForUser(state.user);
+    } else if (!isTabAllowedForRole(userRole, state.activeTab)) {
+        state.activeTab = resolveHomeTabForUser(state.user);
     }
 
-    if (userRole === 'assistant') {
-        if (!state.activeTab.startsWith('asprak-')) {
-            state.activeTab = 'asprak-dashboard';
-        }
-        await loadAsprakData(true);
-        if (state.activeTab === 'asprak-complaint' && state.initialComplaintId) {
-            await loadAsprakComplaintById(state.initialComplaintId);
-        }
+    syncUrlToTab(state.activeTab, true, state.initialComplaintId);
+
+    if (userRole === 'admin' || userRole === 'lecturer' || userRole === 'practitioner' || userRole === 'assistant') {
+        await loadActiveTabData(true);
         return;
-    }
-
-    if (state.activeTab.startsWith('asprak-')) {
-        state.activeTab = 'dashboard';
     }
 
     await Promise.allSettled([
@@ -517,6 +847,22 @@ function updateNimHelperDom(nimValue) {
     }
 }
 
+let searchDebounceTimer = null;
+
+function restoreInputFocus(selector, caretStart, caretEnd) {
+    const el = document.querySelector(selector);
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        el.focus();
+        try {
+            if (typeof caretStart === 'number') {
+                el.setSelectionRange(caretStart, typeof caretEnd === 'number' ? caretEnd : caretStart);
+            }
+        } catch {
+            // Input type search/email might ignore setSelectionRange on some browsers
+        }
+    }
+}
+
 // --- Input Handlers ---
 document.addEventListener('input', (event) => {
     const target = event.target;
@@ -542,6 +888,56 @@ document.addEventListener('input', (event) => {
         state.asprak.projectForm.project_owner_name = target.value;
     } else if (field === 'asprak-project-associate') {
         state.asprak.projectForm.project_associate = target.value;
+    } else if (field === 'madmin-name') {
+        state.masterAdmin.form.name = target.value;
+    } else if (field === 'madmin-email') {
+        state.masterAdmin.form.email = target.value;
+    } else if (field === 'madmin-nip') {
+        state.masterAdmin.form.nip = target.value;
+    } else if (field === 'practitioner-note') {
+        state.practitioner.noteDraft = target.value;
+    } else if (field === 'practitioner-project-name') {
+        state.practitioner.projectForm.project_name = target.value;
+    } else if (field === 'practitioner-project-owner') {
+        state.practitioner.projectForm.project_owner_name = target.value;
+    } else if (field === 'practitioner-project-associate') {
+        state.practitioner.projectForm.project_associate = target.value;
+    } else if (field === 'dosen-stakeholder-email') {
+        state.dosen.stakeholderForm.email = target.value;
+    } else if (field === 'dosen-project-name') {
+        state.dosen.projectForm.project_name = target.value;
+    } else if (field === 'dosen-project-owner') {
+        state.dosen.projectForm.project_owner_name = target.value;
+    } else if (field === 'dosen-project-associate') {
+        state.dosen.projectForm.project_associate = target.value;
+    } else if (field === 'dosen-bypass-team-name') {
+        state.dosen.bypassForm.team_name = target.value;
+    } else if (field === 'dosen-bypass-member-query') {
+        const start = target.selectionStart;
+        const end = target.selectionEnd;
+        state.dosen.bypassForm.memberQuery = target.value;
+        renderApp();
+        restoreInputFocus('[data-input="dosen-bypass-member-query"]', start, end);
+    } else if (field === 'practitioner-search') {
+        const start = target.selectionStart;
+        const end = target.selectionEnd;
+        state.practitioner.search = target.value;
+        state.practitioner.page = 1;
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = window.setTimeout(async () => {
+            await loadPractitionerData(true, true);
+            restoreInputFocus('[data-input="practitioner-search"]', start, end);
+        }, 260);
+    } else if (field === 'dosen-user-search') {
+        const start = target.selectionStart;
+        const end = target.selectionEnd;
+        state.dosen.userSearch = target.value;
+        state.dosen.userPage = 1;
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = window.setTimeout(async () => {
+            await loadDosenUsersOnly(true);
+            restoreInputFocus('[data-input="dosen-user-search"]', start, end);
+        }, 260);
     }
 });
 
@@ -551,13 +947,133 @@ document.addEventListener('change', async (event) => {
 
     const action = target.dataset.action;
 
-    if (action === 'asprak-select-project-team' && target instanceof HTMLSelectElement) {
-        prefillAsprakProjectForm(Number(target.value));
+    if (target instanceof HTMLSelectElement) {
+        if (action === 'asprak-select-project-team') {
+            prefillAsprakProjectForm(Number(target.value));
+            renderApp();
+            return;
+        }
+        if (action === 'practitioner-select-project-team') {
+            prefillGreenProjectForm(state.practitioner.projectForm, state.practitioner.teams, Number(target.value));
+            renderApp();
+            return;
+        }
+        if (action === 'dosen-select-project-team') {
+            prefillGreenProjectForm(state.dosen.projectForm, state.dosen.teams, Number(target.value));
+            renderApp();
+            return;
+        }
+        if (action === 'dosen-stakeholder-role') {
+            state.dosen.stakeholderForm.role = target.value;
+            return;
+        }
+        if (action === 'dosen-user-role-filter') {
+            state.dosen.userRoleFilter = target.value;
+            state.dosen.userPage = 1;
+            await loadDosenUsersOnly();
+            return;
+        }
+        if (action === 'dosen-inline-role') {
+            const userId = Number(target.dataset.userId);
+            const newRole = target.value;
+            try {
+                await updateUserRole(userId, newRole);
+                await loadDosenData(true);
+                await loadDevUsersIfLocal();
+            } catch (error) {
+                state.modal = {
+                    type: 'green-alert',
+                    title: 'Gagal Mengubah Peran',
+                    subtitle: formatApiError(error, 'Peran user tidak dapat diperbarui.'),
+                    buttonLabel: 'Oke',
+                };
+                await loadDosenUsersOnly(true);
+            }
+            return;
+        }
+        if (action === 'dosen-bypass-category') {
+            state.dosen.bypassForm.category = target.value;
+            return;
+        }
+        if (action === 'dosen-calendar-month' && state.dosen.calendarModal) {
+            state.dosen.calendarModal.viewMonth = Number(target.value);
+            renderApp();
+            return;
+        }
+        if (action === 'dosen-calendar-year' && state.dosen.calendarModal) {
+            state.dosen.calendarModal.viewYear = Number(target.value);
+            renderApp();
+            return;
+        }
+        if (action === 'dosen-assign-pick-assistant') {
+            state.dosen.assignModal.assistantId = Number(target.value) || null;
+            renderApp();
+            return;
+        }
+        if (action === 'dosen-assign-pick-team') {
+            state.dosen.assignModal.teamId = Number(target.value) || null;
+            renderApp();
+            return;
+        }
+    }
+
+    if (!(target instanceof HTMLInputElement)) return;
+
+    if (action === 'practitioner-toggle-override') {
+        state.practitioner.overrideEnabled = Boolean(target.checked);
+        state.practitioner.openRoleDropdown = null;
         renderApp();
         return;
     }
 
-    if (!(target instanceof HTMLInputElement)) return;
+    if (action === 'dosen-toggle-role2') {
+        const nextVal = Boolean(target.checked);
+        try {
+            const res = await updateSettings({ is_role_2_required: nextVal });
+            state.dosen.settings = res?.data || state.dosen.settings;
+            renderApp();
+        } catch (error) {
+            state.modal = {
+                type: 'green-alert',
+                title: 'Gagal Memperbarui Pengaturan',
+                subtitle: formatApiError(error, 'Tidak dapat mengubah kewajiban Role Sekunder.'),
+                buttonLabel: 'Oke',
+            };
+            renderApp();
+        }
+        return;
+    }
+
+    if (action === 'dosen-import-csv') {
+        const file = target.files?.[0];
+        if (!file) return;
+        state.dosen.importingCsv = true;
+        renderApp();
+        try {
+            const res = await importWhitelistFile(file);
+            await loadDosenData(true);
+            await loadDevUsersIfLocal();
+            state.modal = {
+                type: 'green-alert',
+                title: 'Import KRS Berhasil!',
+                subtitle: res?.message || `${res?.total_imported || 0} peserta berhasil diimpor.`,
+                details: Array.isArray(res?.errors) && res.errors.length > 0 ? res.errors.slice(0, 5) : undefined,
+                buttonLabel: 'Oke',
+            };
+        } catch (error) {
+            state.modal = {
+                type: 'green-alert',
+                title: 'Gagal Mengimpor KRS',
+                subtitle: formatApiError(error, 'Pastikan file berformat CSV/XLSX dengan kolom email, nim, name.'),
+                buttonLabel: 'Oke',
+            };
+        } finally {
+            target.value = '';
+            state.dosen.importingCsv = false;
+            renderApp();
+        }
+        return;
+    }
 
     if (action === 'toggle-skill') {
         const skillId = Number(target.dataset.skillId);
@@ -670,13 +1186,23 @@ document.addEventListener('click', async (event) => {
     const clickedInsideDropdown = rawTarget.closest('[data-dropdown-panel]') ||
         rawTarget.closest('[data-action="toggle-profile-menu"]') ||
         rawTarget.closest('[data-action="toggle-role-dropdown"]') ||
-        rawTarget.closest('[data-action="toggle-teammate-dropdown"]');
+        rawTarget.closest('[data-action="toggle-teammate-dropdown"]') ||
+        rawTarget.closest('[data-action="practitioner-toggle-role-dropdown"]');
 
-    if (!clickedInsideDropdown && (state.profileDropdownOpen || state.profiling.openRoleDropdown || state.complaint.dropdownOpen)) {
+    if (!clickedInsideDropdown && (state.profileDropdownOpen || state.profiling.openRoleDropdown || state.complaint.dropdownOpen || state.practitioner.openRoleDropdown)) {
         state.profileDropdownOpen = false;
         state.profiling.openRoleDropdown = null;
         state.complaint.dropdownOpen = false;
+        state.practitioner.openRoleDropdown = null;
         renderApp();
+    }
+
+    if (rawTarget.dataset?.action === 'practitioner-backdrop-close') {
+        state.practitioner.selectedUserId = null;
+        state.practitioner.detail = null;
+        state.practitioner.openRoleDropdown = null;
+        renderApp();
+        return;
     }
 
     if (rawTarget.dataset?.modalBackdrop === 'true') {
@@ -1121,6 +1647,276 @@ document.addEventListener('click', async (event) => {
             await navigateToTab('asprak-dashboard');
             break;
 
+        // --- Master Admin Actions ---
+        case 'madmin-open-add':
+            state.modal = { type: 'madmin-add' };
+            renderApp();
+            break;
+
+        case 'madmin-submit-add':
+            await executeMasterAdminAddLecturer();
+            break;
+
+        case 'madmin-confirm-revoke':
+            state.modal = {
+                type: 'madmin-revoke',
+                userId: Number(actionEl.dataset.userId),
+                userName: actionEl.dataset.userName || '',
+            };
+            renderApp();
+            break;
+
+        case 'madmin-confirm-delete':
+            await executeMasterAdminRevoke(Number(actionEl.dataset.userId));
+            break;
+
+        // --- Praktisi Industri & Evaluator Actions ---
+        case 'practitioner-page': {
+            const nextPage = Number(actionEl.dataset.page || 1);
+            if (nextPage >= 1 && nextPage !== state.practitioner.page) {
+                state.practitioner.page = nextPage;
+                await loadPractitionerData(true);
+            }
+            break;
+        }
+
+        case 'practitioner-open-detail':
+            await loadPractitionerStudentDetail(Number(actionEl.dataset.userId));
+            break;
+
+        case 'practitioner-close-detail':
+            state.practitioner.selectedUserId = null;
+            state.practitioner.detail = null;
+            state.practitioner.openRoleDropdown = null;
+            renderApp();
+            break;
+
+        case 'practitioner-toggle-role-dropdown': {
+            const slot = Number(actionEl.dataset.slot);
+            state.practitioner.openRoleDropdown = state.practitioner.openRoleDropdown === slot ? null : slot;
+            renderApp();
+            break;
+        }
+
+        case 'practitioner-pick-override-role': {
+            const slot = Number(actionEl.dataset.slot);
+            const roleId = Number(actionEl.dataset.roleId);
+            if (slot === 1) {
+                state.practitioner.overrideRole1Id = roleId;
+                if (Number(state.practitioner.overrideRole2Id) === roleId) {
+                    state.practitioner.overrideRole2Id = null;
+                }
+            } else if (slot === 2 && Number(state.practitioner.overrideRole1Id) !== roleId) {
+                state.practitioner.overrideRole2Id = roleId;
+            }
+            state.practitioner.openRoleDropdown = null;
+            renderApp();
+            break;
+        }
+
+        case 'practitioner-save-detail':
+            await executePractitionerSaveDetail();
+            break;
+
+        case 'practitioner-reset-role':
+            await executePractitionerResetRole();
+            break;
+
+        case 'practitioner-export':
+            await executePractitionerExportCsv();
+            break;
+
+        case 'practitioner-open-complaint': {
+            const cid = Number(actionEl.dataset.complaintId);
+            state.initialComplaintId = cid;
+            state.activeTab = 'practitioner-complaint-detail';
+            syncUrlToTab('practitioner-complaint-detail', false, cid);
+            renderApp();
+            await loadPractitionerComplaintById(cid);
+            break;
+        }
+
+        case 'practitioner-back-complaints':
+            await navigateToTab('practitioner-complaints');
+            break;
+
+        case 'practitioner-review-complaint':
+            await executeStaffReviewComplaint('practitioner', Number(actionEl.dataset.complaintId));
+            break;
+
+        case 'practitioner-save-project':
+            await executeSaveGreenProject('practitioner');
+            break;
+
+        // --- Dosen Pengampu Actions ---
+        case 'dosen-open-calendar':
+            openDosenCalendarModal(actionEl.dataset.kind || 'registration');
+            break;
+
+        case 'dosen-calendar-prev':
+            if (state.dosen.calendarModal) {
+                let m = state.dosen.calendarModal.viewMonth - 1;
+                let y = state.dosen.calendarModal.viewYear;
+                if (m < 0) {
+                    m = 11;
+                    y -= 1;
+                }
+                state.dosen.calendarModal.viewMonth = m;
+                state.dosen.calendarModal.viewYear = y;
+                renderApp();
+            }
+            break;
+
+        case 'dosen-calendar-next':
+            if (state.dosen.calendarModal) {
+                let m = state.dosen.calendarModal.viewMonth + 1;
+                let y = state.dosen.calendarModal.viewYear;
+                if (m > 11) {
+                    m = 0;
+                    y += 1;
+                }
+                state.dosen.calendarModal.viewMonth = m;
+                state.dosen.calendarModal.viewYear = y;
+                renderApp();
+            }
+            break;
+
+        case 'dosen-calendar-pick-day':
+            pickDosenCalendarDay(actionEl.dataset.iso || '');
+            break;
+
+        case 'dosen-calendar-save':
+            await executeSaveDosenCalendar();
+            break;
+
+        case 'dosen-toggle-lock-all':
+            await executeDosenLockAll(actionEl.dataset.mode === 'lock');
+            break;
+
+        case 'dosen-open-autogroup-confirm':
+            state.modal = { type: 'dosen-confirm-autogroup' };
+            renderApp();
+            break;
+
+        case 'dosen-confirm-autogroup':
+            await executeDosenAutoGroup();
+            break;
+
+        case 'dosen-reset-grouping':
+            await executeDosenResetGrouping();
+            break;
+
+        case 'dosen-add-stakeholder':
+            await executeDosenAddStakeholder();
+            break;
+
+        case 'dosen-user-page': {
+            const nextPage = Number(actionEl.dataset.page || 1);
+            if (nextPage >= 1 && nextPage !== state.dosen.userPage) {
+                state.dosen.userPage = nextPage;
+                await loadDosenUsersOnly();
+            }
+            break;
+        }
+
+        case 'dosen-delete-user':
+            await executeDosenDeleteUser(Number(actionEl.dataset.userId));
+            break;
+
+        case 'dosen-save-project':
+            await executeSaveGreenProject('dosen');
+            break;
+
+        case 'dosen-open-assign-modal':
+            state.dosen.assignModal = {
+                open: true,
+                assistantId: state.dosen.assistants[0]?.id || null,
+                teamId: state.dosen.teams[0]?.id || null,
+                saving: false,
+            };
+            state.modal = { type: 'dosen-assign-asprak' };
+            renderApp();
+            break;
+
+        case 'dosen-assign-save':
+            await executeDosenAssignSupervisor();
+            break;
+
+        case 'dosen-unassign-supervisor':
+            await executeDosenUnassignSupervisor(Number(actionEl.dataset.teamId));
+            break;
+
+        case 'dosen-bypass-add-member':
+            addDosenBypassMemberFromQuery();
+            break;
+
+        case 'dosen-bypass-pick-suggestion':
+            addDosenBypassMemberById(Number(actionEl.dataset.userId));
+            break;
+
+        case 'dosen-bypass-remove-member': {
+            const idx = Number(actionEl.dataset.index);
+            state.dosen.bypassForm.members.splice(idx, 1);
+            renderApp();
+            break;
+        }
+
+        case 'dosen-open-bypass-confirm': {
+            const bf = state.dosen.bypassForm;
+            if (!String(bf.team_name || '').trim() || bf.members.length === 0) {
+                state.modal = {
+                    type: 'green-alert',
+                    title: 'Data Tim Khusus Belum Lengkap',
+                    subtitle: 'Masukkan Nama Tim dan minimal 1 Anggota Terikat terlebih dahulu.',
+                    buttonLabel: 'Oke',
+                };
+                renderApp();
+                break;
+            }
+            state.modal = { type: 'dosen-confirm-bypass' };
+            renderApp();
+            break;
+        }
+
+        case 'dosen-confirm-bypass':
+            await executeDosenCreateBypassTeam();
+            break;
+
+        case 'dosen-open-complaint': {
+            const cid = Number(actionEl.dataset.complaintId);
+            state.initialComplaintId = cid;
+            state.activeTab = 'dosen-complaint-detail';
+            syncUrlToTab('dosen-complaint-detail', false, cid);
+            renderApp();
+            await loadDosenComplaintById(cid);
+            break;
+        }
+
+        case 'dosen-back-complaints':
+            await navigateToTab('dosen-complaints');
+            break;
+
+        case 'dosen-review-complaint':
+            await executeStaffReviewComplaint('dosen', Number(actionEl.dataset.complaintId));
+            break;
+
+        case 'staff-download-evidence': {
+            const complaintId = Number(actionEl.dataset.complaintId);
+            const filename = actionEl.dataset.filename || `bukti_pengaduan_${complaintId}`;
+            try {
+                await downloadComplaintEvidence(complaintId, filename);
+            } catch (error) {
+                state.modal = {
+                    type: 'green-alert',
+                    title: 'Gagal Mengunduh Berkas',
+                    subtitle: formatApiError(error, 'Berkas bukti tidak dapat diunduh.'),
+                    buttonLabel: 'Oke',
+                };
+                renderApp();
+            }
+            break;
+        }
+
         case 'close-modal': {
             const nextTab = actionEl.dataset.nextTab;
             state.modal = null;
@@ -1319,6 +2115,639 @@ async function executeSaveAsprakProject() {
         };
     } finally {
         state.asprak.projectSubmitting = false;
+        renderApp();
+    }
+}
+
+async function executeMasterAdminAddLecturer() {
+    const form = state.masterAdmin.form;
+    const name = String(form.name || '').trim();
+    const email = String(form.email || '').trim().toLowerCase();
+    const nip = String(form.nip || '').trim();
+
+    if (!name || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Data Dosen Tidak Ditemukan',
+            subtitle: 'Cek ulang data yang anda masukan',
+            details: ['Pastikan Nama Dosen dan format Email Dosen valid.'],
+            buttonLabel: 'Oke',
+        };
+        renderApp();
+        return;
+    }
+
+    state.masterAdmin.submitting = true;
+    renderApp();
+
+    try {
+        await initiateLecturer({
+            name,
+            email,
+            nip: nip || null,
+            role: 'lecturer',
+        });
+        state.masterAdmin.form = { name: '', email: '', nip: '' };
+        state.modal = {
+            type: 'green-alert',
+            title: 'Dosen Admin Berhasil Ditambahkan',
+            subtitle: `${name} (${email}) kini terdaftar sebagai Dosen Pengampu / Admin.`,
+            buttonLabel: 'Oke',
+        };
+        await Promise.allSettled([loadMasterAdminData(true), loadDevUsersIfLocal()]);
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Data Dosen Tidak Ditemukan',
+            subtitle: 'Cek ulang data yang anda masukan',
+            details: [formatApiError(error, 'Gagal menyimpan data dosen.')],
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        state.masterAdmin.submitting = false;
+        renderApp();
+    }
+}
+
+async function executeMasterAdminRevoke(userId) {
+    state.masterAdmin.deletingId = userId;
+    renderApp();
+    try {
+        await deleteUser(userId);
+        state.modal = {
+            type: 'green-alert',
+            title: 'Hak Akses Dicabut',
+            subtitle: 'Akun dosen berhasil dihapus dari daftar akses admin.',
+            buttonLabel: 'Oke',
+        };
+        await Promise.allSettled([loadMasterAdminData(true), loadDevUsersIfLocal()]);
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Mencabut Hak Akses',
+            subtitle: formatApiError(error, 'Tidak dapat menghapus dosen admin ini.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        state.masterAdmin.deletingId = null;
+        renderApp();
+    }
+}
+
+async function executePractitionerSaveDetail() {
+    const p = state.practitioner;
+    const userId = p.selectedUserId;
+    if (!userId || !p.detail) return;
+
+    const isLocked = Boolean(p.detail.evaluation?.is_locked);
+    p.saving = true;
+    renderApp();
+
+    try {
+        if (p.overrideEnabled && !isLocked && p.overrideRole1Id) {
+            await overrideStudentRole(userId, {
+                final_role_id: Number(p.overrideRole1Id),
+                role_2_id: p.overrideRole2Id ? Number(p.overrideRole2Id) : null,
+                note: String(p.noteDraft || '').trim() || null,
+            });
+        } else {
+            await updateEvaluationNote(userId, String(p.noteDraft || '').trim() || null);
+        }
+
+        await loadPractitionerData(true, true);
+        await loadPractitionerStudentDetail(userId);
+
+        state.modal = {
+            type: 'green-alert',
+            title: p.overrideEnabled && !isLocked ? 'Override & Profil Disimpan' : 'Verifikasi Profil Tersimpan',
+            subtitle: 'Catatan evaluasi dan penyesuaian posisi mahasiswa berhasil diperbarui.',
+            buttonLabel: 'Oke',
+        };
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Menyimpan Evaluasi',
+            subtitle: formatApiError(error, 'Tidak dapat menyimpan penyesuaian mahasiswa.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        p.saving = false;
+        renderApp();
+    }
+}
+
+async function executePractitionerResetRole() {
+    const p = state.practitioner;
+    const userId = p.selectedUserId;
+    if (!userId) return;
+    p.saving = true;
+    renderApp();
+    try {
+        await resetStudentRole(userId);
+        await loadPractitionerData(true, true);
+        await loadPractitionerStudentDetail(userId);
+        state.modal = {
+            type: 'green-alert',
+            title: 'Role Direset ke Saran Sistem',
+            subtitle: 'Posisi final mahasiswa berhasil dikembalikan ke rekomendasi awal scoring engine.',
+            buttonLabel: 'Oke',
+        };
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Mereset Role',
+            subtitle: formatApiError(error, 'Tidak dapat mereset posisi final mahasiswa.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        p.saving = false;
+        renderApp();
+    }
+}
+
+async function executePractitionerExportCsv() {
+    try {
+        const res = await fetchEvaluations({ per_page: 'all', search: state.practitioner.search || undefined });
+        const list = Array.isArray(res?.data) ? res.data : [];
+        const headers = ['NIM', 'Nama Mahasiswa', 'Email', 'Role Utama', 'Role Sekunder', 'Score', 'Status'];
+        const rows = list.map((r) => [
+            r.nim || '-',
+            r.name || '-',
+            r.email || '-',
+            r.final_role ? roleFullTitle(r.final_role.code, r.final_role.name) : '-',
+            r.role_2 ? roleFullTitle(r.role_2.code, r.role_2.name) : '-',
+            `${Math.round(Number(r.recommended_score ?? r.score_role_1 ?? 0))}/100`,
+            r.is_locked ? 'Verified' : (r.is_overridden ? 'Override' : 'Pending'),
+        ]);
+        downloadCsvFile('daftar_mahasiswa_skillset_sipad.csv', headers, rows);
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Export CSV',
+            subtitle: formatApiError(error, 'Tidak dapat mengekspor data mahasiswa.'),
+            buttonLabel: 'Oke',
+        };
+        renderApp();
+    }
+}
+
+async function executeStaffReviewComplaint(scope, complaintId) {
+    const bucket = scope === 'dosen' ? state.dosen : state.practitioner;
+    bucket.reviewingId = complaintId;
+    renderApp();
+
+    try {
+        const res = await reviewComplaint(complaintId);
+        const updated = res?.data || null;
+        if (updated) {
+            bucket.detailComplaint = updated;
+            bucket.complaints = (bucket.complaints || []).map((c) =>
+                Number(c.id) === complaintId ? updated : c
+            );
+        }
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Menandai Tinjauan',
+            subtitle: formatApiError(error, 'Tidak dapat memperbarui status tinjauan pengaduan.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        bucket.reviewingId = null;
+        renderApp();
+    }
+}
+
+async function executeSaveGreenProject(scope) {
+    const isDosen = scope === 'dosen';
+    const form = isDosen ? state.dosen.projectForm : state.practitioner.projectForm;
+    const { team_id, project_name, project_owner_name, project_associate } = form;
+
+    if (!team_id || !String(project_name || '').trim()) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Data Proyek Belum Lengkap',
+            subtitle: 'Pilih kelompok dan masukkan 1. Nama Proyek terlebih dahulu.',
+            buttonLabel: 'Oke',
+        };
+        renderApp();
+        return;
+    }
+
+    if (isDosen) {
+        state.dosen.busyAction = 'project';
+    } else {
+        state.practitioner.projectSubmitting = true;
+    }
+    renderApp();
+
+    try {
+        await saveTeamProject(Number(team_id), {
+            project_name: String(project_name).trim(),
+            project_owner_name: String(project_owner_name || '').trim() || null,
+            project_associate: String(project_associate || '').trim() || null,
+        });
+        if (isDosen) {
+            await loadDosenData(true);
+        } else {
+            await loadPractitionerData(true, true);
+        }
+        state.modal = {
+            type: 'green-alert',
+            title: 'Detail Proyek Tersimpan!',
+            subtitle: `Metadata proyek untuk Kelompok ${team_id} berhasil diperbarui.`,
+            buttonLabel: 'Oke',
+        };
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Menyimpan Proyek',
+            subtitle: formatApiError(error, 'Tidak dapat menyimpan detail proyek.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        if (isDosen) {
+            state.dosen.busyAction = '';
+        } else {
+            state.practitioner.projectSubmitting = false;
+        }
+        renderApp();
+    }
+}
+
+function openDosenCalendarModal(kind) {
+    const s = state.dosen.settings || {};
+    const all = s.all_settings || {};
+    let startIso = '';
+    let endIso = '';
+    let initialHadValue = false;
+
+    if (kind === 'registration') {
+        startIso = all.registration_start_date || '';
+        endIso = all.registration_end_date || '';
+        initialHadValue = Boolean(s.registration_timeline || startIso);
+        if (!startIso && !endIso && String(s.registration_timeline || '').includes('Agustus 2026')) {
+            startIso = '2026-08-01';
+            endIso = '2026-08-28';
+        }
+    } else {
+        startIso = all.team_release_date_iso || '';
+        initialHadValue = Boolean(all.team_release_date || startIso);
+        if (!startIso && String(all.team_release_date || '').includes('September 2026')) {
+            startIso = '2026-09-06';
+        }
+    }
+
+    const refDate = startIso ? new Date(startIso) : new Date();
+    const viewYear = Number.isNaN(refDate.getTime()) ? new Date().getFullYear() : refDate.getFullYear();
+    const viewMonth = Number.isNaN(refDate.getTime()) ? new Date().getMonth() : refDate.getMonth();
+
+    state.dosen.calendarModal = {
+        kind,
+        initialHadValue,
+        viewYear,
+        viewMonth,
+        startIso,
+        endIso,
+        saving: false,
+    };
+    state.modal = { type: 'dosen-calendar' };
+    renderApp();
+}
+
+function pickDosenCalendarDay(iso) {
+    const cm = state.dosen.calendarModal;
+    if (!cm || !iso) return;
+
+    if (cm.kind === 'release') {
+        cm.startIso = iso;
+        cm.endIso = '';
+        renderApp();
+        return;
+    }
+
+    if (!cm.startIso || (cm.startIso && cm.endIso)) {
+        cm.startIso = iso;
+        cm.endIso = '';
+    } else if (iso < cm.startIso) {
+        cm.endIso = cm.startIso;
+        cm.startIso = iso;
+    } else {
+        cm.endIso = iso;
+    }
+    renderApp();
+}
+
+async function executeSaveDosenCalendar() {
+    const cm = state.dosen.calendarModal;
+    if (!cm || !cm.startIso) return;
+    cm.saving = true;
+    renderApp();
+
+    try {
+        let res;
+        if (cm.kind === 'registration') {
+            const end = cm.endIso || cm.startIso;
+            const formatted = formatIndoDateRange(cm.startIso, end);
+            res = await updateSettings({
+                registration_timeline: formatted,
+                settings: {
+                    registration_start_date: cm.startIso,
+                    registration_end_date: end,
+                },
+            });
+        } else {
+            const formatted = formatIsoToIndoDate(cm.startIso);
+            res = await updateSettings({
+                settings: {
+                    team_release_date: formatted,
+                    team_release_date_iso: cm.startIso,
+                },
+            });
+        }
+        state.dosen.settings = res?.data || state.dosen.settings;
+        state.dosen.calendarModal = null;
+        state.modal = null;
+        renderApp();
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Menyimpan Jadwal',
+            subtitle: formatApiError(error, 'Tidak dapat memperbarui jadwal.'),
+            buttonLabel: 'Oke',
+        };
+        renderApp();
+    }
+}
+
+async function executeDosenLockAll(shouldLock) {
+    state.dosen.busyAction = 'lock';
+    renderApp();
+    try {
+        const res = shouldLock ? await lockAllEvaluations() : await unlockAllEvaluations();
+        await loadDosenData(true);
+        state.modal = {
+            type: 'green-alert',
+            title: shouldLock ? 'Semua Data Mahasiswa Dikunci' : 'Kunci Data Mahasiswa Dibuka',
+            subtitle: res?.message || 'Status kunci evaluasi mahasiswa diperbarui.',
+            buttonLabel: 'Oke',
+        };
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Memperbarui Status Kunci',
+            subtitle: formatApiError(error, 'Tidak dapat mengubah status kunci mahasiswa.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        state.dosen.busyAction = '';
+        renderApp();
+    }
+}
+
+async function executeDosenAutoGroup() {
+    state.dosen.busyAction = 'autogroup';
+    renderApp();
+    try {
+        const res = await autoGroupTeams();
+        await loadDosenData(true);
+        state.modal = {
+            type: 'green-alert',
+            title: 'Pengacakan Tim Berhasil!',
+            subtitle: res?.message || 'Tim PAD otomatis telah dibentuk.',
+            buttonLabel: 'Oke',
+        };
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Pengacakan Tim Belum Dapat Dijalankan',
+            subtitle: formatApiError(error, 'Pastikan seluruh mahasiswa reguler sudah memiliki role final yang terkunci dan seimbang across 4 role.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        state.dosen.busyAction = '';
+        renderApp();
+    }
+}
+
+async function executeDosenResetGrouping() {
+    state.dosen.busyAction = 'autogroup';
+    renderApp();
+    try {
+        const res = await resetTeamGrouping();
+        await loadDosenData(true);
+        state.modal = {
+            type: 'green-alert',
+            title: 'Pembagian Tim Direset',
+            subtitle: res?.message || 'Tim reguler yang belum dikunci berhasil direset.',
+            buttonLabel: 'Oke',
+        };
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Mereset Pembagian Tim',
+            subtitle: formatApiError(error, 'Tim reguler yang sudah dikunci tidak dapat direset.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        state.dosen.busyAction = '';
+        renderApp();
+    }
+}
+
+async function executeDosenAddStakeholder() {
+    const { email, role } = state.dosen.stakeholderForm;
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Email Tidak Valid',
+            subtitle: 'Ketik alamat email stakeholder yang valid terlebih dahulu.',
+            buttonLabel: 'Oke',
+        };
+        renderApp();
+        return;
+    }
+
+    state.dosen.busyAction = 'add-stakeholder';
+    renderApp();
+    try {
+        await storeWhitelistUser({ email: cleanEmail, role });
+        state.dosen.stakeholderForm.email = '';
+        await Promise.allSettled([loadDosenData(true), loadDevUsersIfLocal()]);
+        state.modal = {
+            type: 'green-alert',
+            title: 'Stakeholder Ditambahkan',
+            subtitle: `Email ${cleanEmail} berhasil didaftarkan ke sistem.`,
+            buttonLabel: 'Oke',
+        };
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Menambah Stakeholder',
+            subtitle: formatApiError(error, 'Tidak dapat mendaftarkan email ini.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        state.dosen.busyAction = '';
+        renderApp();
+    }
+}
+
+async function executeDosenDeleteUser(userId) {
+    try {
+        await deleteUser(userId);
+        await Promise.allSettled([loadDosenData(true), loadDevUsersIfLocal()]);
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Menghapus Pengguna',
+            subtitle: formatApiError(error, 'Pengguna yang perannya sudah dikunci tidak dapat dihapus.'),
+            buttonLabel: 'Oke',
+        };
+        renderApp();
+    }
+}
+
+async function executeDosenAssignSupervisor() {
+    const am = state.dosen.assignModal;
+    const teamId = am.teamId || state.dosen.teams[0]?.id;
+    if (!am.assistantId || !teamId) return;
+
+    am.saving = true;
+    renderApp();
+    try {
+        await assignTeamSupervisor(Number(teamId), Number(am.assistantId));
+        await loadDosenData(true);
+        state.modal = {
+            type: 'green-alert',
+            title: 'Asisten Praktikum Ditetapkan',
+            subtitle: `Asprak berhasil ditugaskan untuk mendampingi Kelompok ${teamId}.`,
+            buttonLabel: 'Oke',
+        };
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Menetapkan Asprak',
+            subtitle: formatApiError(error, 'Tidak dapat menetapkan asisten praktikum ke kelompok ini.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        am.saving = false;
+        renderApp();
+    }
+}
+
+async function executeDosenUnassignSupervisor(teamId) {
+    try {
+        await assignTeamSupervisor(teamId, null);
+        await loadDosenData(true);
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Melepas Asprak',
+            subtitle: formatApiError(error, 'Tidak dapat melepas asisten dari kelompok ini.'),
+            buttonLabel: 'Oke',
+        };
+        renderApp();
+    }
+}
+
+function addDosenBypassMemberById(userId) {
+    const u = state.dosen.allStudents.find((s) => Number(s.id) === Number(userId));
+    if (!u) return;
+    if (state.dosen.bypassForm.members.some((m) => Number(m.user_id) === Number(u.id))) {
+        state.dosen.bypassForm.memberQuery = '';
+        renderApp();
+        return;
+    }
+    state.dosen.bypassForm.members.push({
+        user_id: u.id,
+        name: u.name || u.email,
+        email: u.email,
+        nim: u.student_profile?.nim || '',
+        roleLabel: '',
+    });
+    state.dosen.bypassForm.memberQuery = '';
+    renderApp();
+}
+
+function addDosenBypassMemberFromQuery() {
+    const raw = String(state.dosen.bypassForm.memberQuery || '').trim();
+    if (!raw) return;
+
+    const q = raw.toLowerCase();
+    const matched = state.dosen.allStudents.find(
+        (u) =>
+            String(u.email || '').toLowerCase() === q ||
+            String(u.student_profile?.nim || '').toLowerCase() === q ||
+            String(u.name || '').toLowerCase() === q ||
+            String(u.name || '').toLowerCase().includes(q)
+    );
+
+    if (matched) {
+        addDosenBypassMemberById(matched.id);
+        return;
+    }
+
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) {
+        if (!state.dosen.bypassForm.members.some((m) => String(m.email || '').toLowerCase() === q)) {
+            state.dosen.bypassForm.members.push({
+                user_id: null,
+                name: raw,
+                email: q,
+                nim: '',
+                roleLabel: 'Jalur Khusus',
+            });
+        }
+        state.dosen.bypassForm.memberQuery = '';
+        renderApp();
+        return;
+    }
+
+    state.modal = {
+        type: 'green-alert',
+        title: 'Mahasiswa Tidak Ditemukan',
+        subtitle: 'Pilih mahasiswa dari saran pencarian atau masukkan email UGM yang valid.',
+        buttonLabel: 'Oke',
+    };
+    renderApp();
+}
+
+async function executeDosenCreateBypassTeam() {
+    const bf = state.dosen.bypassForm;
+    const membersPayload = bf.members.map((m) =>
+        m.user_id ? { user_id: Number(m.user_id) } : { email: m.email }
+    );
+
+    state.dosen.busyAction = 'bypass';
+    renderApp();
+    try {
+        await storeExclusiveTeam({
+            team_name: String(bf.team_name).trim(),
+            team_type: 'external',
+            project_associate: bf.category || 'GEMASTIK - Software Development',
+            members: membersPayload,
+        });
+        state.dosen.bypassForm.team_name = '';
+        state.dosen.bypassForm.memberQuery = '';
+        state.dosen.bypassForm.members = [];
+        await loadDosenData(true);
+        state.modal = {
+            type: 'green-alert',
+            title: 'Tim Khusus Berhasil Dikunci!',
+            subtitle: 'Tim jalur GEMASTIK/LIDM telah didaftarkan dan dikecualikan dari Auto-Grouping.',
+            buttonLabel: 'Oke',
+        };
+    } catch (error) {
+        state.modal = {
+            type: 'green-alert',
+            title: 'Gagal Menyimpan Tim Khusus',
+            subtitle: formatApiError(error, 'Periksa kembali data tim dan anggota yang dipilih.'),
+            buttonLabel: 'Oke',
+        };
+    } finally {
+        state.dosen.busyAction = '';
         renderApp();
     }
 }

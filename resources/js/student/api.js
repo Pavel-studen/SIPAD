@@ -162,13 +162,124 @@ export async function reviewComplaint(id) {
 }
 
 // --- Asisten Praktikum & Tim Endpoints ---
-export async function fetchTeams() {
-    const res = await api.get('/teams');
+export async function fetchTeams(params = {}) {
+    const res = await api.get('/teams', { params });
     return res.data;
 }
 
 export async function saveTeamProject(teamId, payload) {
     const res = await api.post(`/teams/${teamId}/project`, payload);
+    return res.data;
+}
+
+// --- Master Admin & User Management Endpoints ---
+export async function fetchUsers(params = {}) {
+    const res = await api.get('/users', { params });
+    return res.data;
+}
+
+export async function initiateLecturer(payload) {
+    const res = await api.post('/admin/lecturers', payload);
+    return res.data;
+}
+
+export async function storeWhitelistUser(payload) {
+    const res = await api.post('/users/whitelist', payload);
+    return res.data;
+}
+
+export async function importWhitelistFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await api.post('/users/whitelist/import', formData);
+    return res.data;
+}
+
+export async function updateUserRole(userId, role) {
+    const res = await api.patch(`/users/${userId}/role`, { role });
+    return res.data;
+}
+
+export async function deleteUser(userId) {
+    const res = await api.delete(`/users/${userId}`);
+    return res.data;
+}
+
+// --- System Settings & Roles Endpoints ---
+export async function fetchSettings() {
+    const res = await api.get('/settings');
+    return res.data;
+}
+
+export async function updateSettings(payload) {
+    const res = await api.put('/settings', payload);
+    return res.data;
+}
+
+export async function fetchRoles() {
+    const res = await api.get('/roles');
+    return res.data;
+}
+
+// --- Evaluation & Override Endpoints (Dosen & Praktisi Industri) ---
+export async function fetchEvaluations(params = {}) {
+    const res = await api.get('/evaluations', { params });
+    return res.data;
+}
+
+export async function fetchEvaluationDetail(userId) {
+    const res = await api.get(`/evaluations/${userId}`);
+    return res.data;
+}
+
+export async function updateEvaluationNote(userId, note) {
+    const res = await api.patch(`/evaluations/${userId}/note`, { note });
+    return res.data;
+}
+
+export async function overrideStudentRole(userId, payload) {
+    const res = await api.patch(`/evaluations/${userId}/override`, payload);
+    return res.data;
+}
+
+export async function resetStudentRole(userId) {
+    const res = await api.post(`/evaluations/${userId}/reset`);
+    return res.data;
+}
+
+export async function lockAllEvaluations() {
+    const res = await api.post('/evaluations/lock-all');
+    return res.data;
+}
+
+export async function unlockAllEvaluations() {
+    const res = await api.post('/evaluations/unlock-all');
+    return res.data;
+}
+
+// --- Team Auto-Grouping, Supervisor & Bypass Endpoints (Dosen) ---
+export async function autoGroupTeams() {
+    const res = await api.post('/teams/auto-group');
+    return res.data;
+}
+
+export async function resetTeamGrouping() {
+    const res = await api.post('/teams/reset-grouping');
+    return res.data;
+}
+
+export async function fetchAssistants() {
+    const res = await api.get('/teams/assistants');
+    return res.data;
+}
+
+export async function assignTeamSupervisor(teamId, supervisorId) {
+    const res = await api.patch(`/teams/${teamId}/supervisor`, { supervisor_id: supervisorId });
+    return res.data;
+}
+
+export async function storeExclusiveTeam(payload) {
+    const res = await api.post('/teams/exclusive', payload);
     return res.data;
 }
 

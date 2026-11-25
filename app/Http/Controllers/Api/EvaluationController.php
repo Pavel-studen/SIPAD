@@ -194,6 +194,8 @@ class EvaluationController extends Controller
                     'name' => $student->name,
                     'email' => $student->email,
                     'nim' => $student->studentProfile?->nim,
+                    'team_id' => $student->studentProfile?->team_id,
+                    'team_label' => $student->studentProfile?->team_id ? 'Kelompok '.$student->studentProfile->team_id : null,
                     'portfolio_link' => $student->studentProfile?->portfolio_link,
                     'is_bypass' => (bool) ($student->studentProfile?->is_bypass ?? false),
                     'role_1' => $student->studentProfile?->role1 ? [
@@ -297,6 +299,9 @@ class EvaluationController extends Controller
 
         $validated = $request->validate([
             'final_role_id' => ['required', 'integer', 'exists:roles,id'],
+            'role_2_id' => ['nullable', 'integer', 'exists:roles,id'],
+            'note' => ['nullable', 'string', 'max:255'],
+            'evaluation_note' => ['nullable', 'string', 'max:255'],
         ], [
             'final_role_id.required' => 'Role final wajib dipilih untuk melakukan override.',
             'final_role_id.exists' => 'Role yang dipilih tidak valid.',
@@ -313,14 +318,24 @@ class EvaluationController extends Controller
 
         $evaluation->final_role_id = $validated['final_role_id'];
         $evaluation->is_overridden = true;
+        if ($request->has('note') || $request->has('evaluation_note')) {
+            $evaluation->evaluation_note = $request->input('note') ?? $request->input('evaluation_note');
+        }
         $evaluation->updated_by = $request->user()->id;
         $evaluation->save();
+
+        if ($request->has('role_2_id')) {
+            $role2Id = $validated['role_2_id'] ?? null;
+            $profile = \App\Models\StudentProfile::firstOrCreate(['user_id' => $student->id]);
+            $profile->role_2_id = ($role2Id && (int) $role2Id !== (int) $validated['final_role_id']) ? (int) $role2Id : null;
+            $profile->save();
+        }
 
         $evaluation->load(['recommendedRole', 'finalRole', 'updater']);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Posisi final mahasiswa berhasil diubah (override) oleh dosen.',
+            'message' => 'Posisi final mahasiswa berhasil diubah (override) oleh evaluator.',
             'data' => [
                 'user_id' => $student->id,
                 'final_role_id' => $evaluation->final_role_id,
@@ -331,6 +346,7 @@ class EvaluationController extends Controller
                 ],
                 'is_overridden' => true,
                 'is_locked' => (bool) $evaluation->is_locked,
+                'evaluation_note' => $evaluation->evaluation_note,
                 'updated_by' => [
                     'id' => $request->user()->id,
                     'name' => $request->user()->name,

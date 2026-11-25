@@ -79,21 +79,23 @@ class AutoGroupingAndTeamManagementTest extends TestCase
     }
 
     /**
-     * Test practitioner access permissions (can read teams, cannot group/reset/assign supervisor/manage project).
+     * Test practitioner access permissions (can read teams & manage project details,
+     * cannot auto-group, reset-grouping, or assign supervisor).
      */
     public function test_practitioner_access_restrictions(): void
     {
         $practitioner = User::factory()->practitioner()->create();
+        $team = Team::create(['team_type' => 'internal']);
         Sanctum::actingAs($practitioner);
 
-        // Can read
+        // Can read and update project details
         $this->getJson('/api/teams')->assertStatus(200);
+        $this->postJson("/api/teams/{$team->id}/project", ['project_name' => 'Project Praktisi'])->assertStatus(200);
 
-        // Cannot write/modify
+        // Cannot group/reset/assign supervisor
         $this->postJson('/api/teams/auto-group')->assertStatus(403);
         $this->postJson('/api/teams/reset-grouping')->assertStatus(403);
-        $this->patchJson('/api/teams/1/supervisor', ['supervisor_id' => 1])->assertStatus(403);
-        $this->postJson('/api/teams/1/project', ['project_name' => 'Project A'])->assertStatus(403);
+        $this->patchJson("/api/teams/{$team->id}/supervisor", ['supervisor_id' => 1])->assertStatus(403);
     }
 
     /**

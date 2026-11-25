@@ -27,11 +27,6 @@ class EnsureUserHasRole
 
         $userRole = $user->user_role instanceof UserRole ? $user->user_role->value : (string) $user->user_role;
 
-        // Admin (Full / Master Admin) has access to all admin and lecturer operations
-        if ($userRole === UserRole::Admin->value) {
-            return $next($request);
-        }
-
         $allowedRoles = [];
         foreach ($roles as $role) {
             $normalized = UserRole::normalize($role);
@@ -44,6 +39,14 @@ class EnsureUserHasRole
             if (in_array(strtolower($role), ['dosen', 'lecturer'], true)) {
                 $allowedRoles[] = UserRole::Lecturer->value;
             }
+        }
+
+        // Student-only routes MUST block all non-student users (including Master Admin).
+        $isStudentOnlyRoute = $allowedRoles === [UserRole::Student->value];
+
+        // Admin (Full / Master Admin) has access to all non-student admin/staff operations
+        if ($userRole === UserRole::Admin->value && ! $isStudentOnlyRoute) {
+            return $next($request);
         }
 
         if (in_array($userRole, $allowedRoles, true)) {

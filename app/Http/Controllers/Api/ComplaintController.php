@@ -293,8 +293,8 @@ class ComplaintController extends Controller
         $role = $user->user_role instanceof UserRole ? $user->user_role->value : (string) $user->user_role;
         $normalized = UserRole::normalize($role);
 
-        // Admin and Lecturer can review any complaint
-        if (in_array($normalized, [UserRole::Admin->value, UserRole::Lecturer->value], true)) {
+        // Admin, Lecturer, Practitioner can review any complaint
+        if (in_array($normalized, [UserRole::Admin->value, UserRole::Lecturer->value, UserRole::Practitioner->value], true)) {
             return true;
         }
 
