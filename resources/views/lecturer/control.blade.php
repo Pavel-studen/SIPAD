@@ -90,9 +90,9 @@
         </div>
 
         <div class="flex gap-4 mt-12 mb-8">
-            <button class="flex-1 border border-[#308242] text-[#308242] font-bold py-3 rounded-md hover:bg-green-50 transition"><a href="{{ route('dosen.control') }}">Kontrol</a></button>
-            <button class="flex-1 bg-[#308242] text-white font-bold py-3 rounded-md hover:bg-green-700 transition"><a href="{{ route('dosen.access') }}">User</a></button>
-            <button class="flex-1 bg-[#308242] text-white font-bold py-3 rounded-md hover:bg-green-700 transition"><a href="{{ route('dosen.bypass') }}">Bypass</a></button>
+            <button class="flex-1 border border-[#308242] text-[#308242] font-bold py-3 rounded-md hover:bg-green-50 transition"><a href="{{ route('lecturer.control') }}">Kontrol</a></button>
+            <button class="flex-1 bg-[#308242] text-white font-bold py-3 rounded-md hover:bg-green-700 transition"><a href="{{ route('lecturer.access') }}">User</a></button>
+            <button class="flex-1 bg-[#308242] text-white font-bold py-3 rounded-md hover:bg-green-700 transition"><a href="{{ route('lecturer.bypass') }}">Bypass</a></button>
         </div>
     </main>
     <!-- Randomize modal -->
@@ -135,7 +135,7 @@
                     class="w-[140px] h-[45px] border border-gray-400 rounded-md text-gray-700 font-bold text-[16px] hover:bg-gray-100 transition">Batal</button>
 
                 <!-- Randomize execution button -->
-                <form method="POST" action="{{ route('dosen.acakTim') }}">
+                <form method="POST" action="{{ route('lecturer.acakTim') }}">
                     @csrf
                     <button 
                         type="submit"
@@ -177,7 +177,7 @@
             </div>
 
             <!-- Update form to Laravel -->
-            <form method="POST" action="{{ route('dosen.editTanggal') }}" class="w-full flex flex-col items-center">
+            <form method="POST" action="{{ route('lecturer.editTanggal') }}" class="w-full flex flex-col items-center">
                 @csrf
                 
                 <!-- Input hidden to store selected dates -->

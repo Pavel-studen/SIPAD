@@ -104,7 +104,6 @@ Route::middleware(['web'])->prefix('lecturer')->name('lecturer.')->group(functio
     Route::post('/access/tambah-email', [LecturerController::class, 'tambahEmail'])->name('tambahEmail');
     Route::post('/access/import-csv', [LecturerController::class, 'importCSV'])->name('importCSV');
     Route::post('/access/hapus-email/{id}', [LecturerController::class, 'hapusEmail'])->name('hapusEmail');
-    Route::post('/access/simpan-proyek', [LecturerController::class, 'simpanProyek'])->name('simpanProyek');
 
     // Route for actions: Bypass page
     Route::post('/bypass/tambah-anggota', [LecturerController::class, 'tambahAnggota'])->name('tambahAnggota');
@@ -114,6 +113,8 @@ Route::middleware(['web'])->prefix('lecturer')->name('lecturer.')->group(functio
 Route::middleware(['web'])->prefix('practitioner')->name('practitioner.')->group(function(){
     Route::get('/dashboard', [PractitionerController::class, 'dashboard'])->name('dashboard');
     Route::get('/complaint', [PractitionerController::class, 'complaint'])->name('complaint');
+    Route::get('/input-project', [PractitionerController::class, 'inputProject'])->name('input-project');
+    Route::post('/input-project/simpan-proyek', [PractitionerController::class, 'simpanProyek'])->name('simpanProyek');
 
     Route::get('/student/{id}/detail', [PractitionerController::class, 'getStudentDetail'])->name('student.detail');
 

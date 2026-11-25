@@ -105,17 +105,6 @@ class LecturerController extends Controller
         return back()->with('success', 'Data berhasil dihapus.');
     }
 
-    public function simpanProyek(Request $request)
-    {
-        $request->validate([
-            'nama_proyek'   => 'required',
-            'project_owner' => 'required',
-            'mitra_proyek'  => 'required'
-        ]);
-
-        return back()->with('success', 'Detail proyek berhasil disimpan.');
-    }
-
     public function kunciTim(Request $request)
     {
         $request->validate([
