@@ -2,6 +2,8 @@ import { roleIcon, uiIcons } from '../icons.js';
 import {
     escapeHtml,
     normalizeRoleCode,
+    parseComplaintText,
+    roleDisplayTag,
     roleModalSectionTitle,
 } from '../utils.js';
 
@@ -228,7 +230,7 @@ function renderTeamDetailModal(state) {
                                     Project Owner
                                 </div>
                                 <div class="border border-[#83B9EF] rounded-[3px] px-2.5 py-1.5 flex items-center text-[11px] leading-snug text-[#30373E]">
-                                    ${escapeHtml(project?.owner?.name || '-')}
+                                    ${escapeHtml(project?.owner_display_name || project?.owner?.name || '-')}
                                 </div>
                             </div>
 
@@ -301,14 +303,150 @@ function renderConfirmComplaintModal(state) {
     `;
 }
 
+function renderAsprakTeamDetailModal(state) {
+    const team = state.asprak.teams.find((t) => Number(t.id) === Number(state.asprak.selectedTeamId));
+    if (!team) return '';
+
+    const members = Array.isArray(team.members) ? team.members : [];
+    const roleOrder = ['PM', 'UIUX', 'FE', 'BE'];
+
+    const groupedRows = roleOrder.map((code) => ({
+        code,
+        title: roleModalSectionTitle(code),
+        members: members.filter((m) => normalizeRoleCode(m.role?.code || m.role?.name) === code),
+    }));
+
+    const teamComplaints = (state.asprak.complaints || []).filter(
+        (c) => Number(c.team_id) === Number(team.id)
+    );
+
+    const resolveMemberRoleLabel = (userId) => {
+        const matched = members.find((m) => Number(m.user_id) === Number(userId));
+        return matched?.role ? roleDisplayTag(matched.role.code, matched.role.name) : 'Anggota';
+    };
+
+    return `
+        <div
+            data-modal-dialog="true"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-asprak-team-title"
+            class="w-full max-w-[470px] max-h-[90dvh] bg-white border-[2.5px] border-[#0773DF] rounded-[12px] shadow-[0_14px_40px_rgba(7,115,223,0.25)] flex flex-col overflow-hidden animate-modal-in"
+        >
+            <!-- Header -->
+            <div class="px-5 py-3 border-b border-[#83B9EF] shrink-0 flex items-center justify-between">
+                <h2 id="modal-asprak-team-title" class="text-[18px] sm:text-[19px] font-bold text-[#486284]">
+                    Detail Kelompok ${escapeHtml(team.id)}
+                </h2>
+                <button
+                    type="button"
+                    data-action="close-modal"
+                    aria-label="Tutup modal"
+                    class="sm:hidden text-[#486284] hover:text-[#0773DF] text-[20px] leading-none px-1 cursor-pointer"
+                >&times;</button>
+            </div>
+
+            <!-- Scrollable Body -->
+            <div class="p-4 sm:p-5 overflow-y-auto sipad-scroll space-y-2.5 flex-1">
+                ${groupedRows.map((section) => `
+                    <div class="space-y-1">
+                        <h3 class="text-[12.5px] font-bold text-[#486284]">${escapeHtml(section.title)}</h3>
+                        ${section.members.length === 0 ? `
+                            <div class="border border-[#83B9EF] bg-[#F4F8FD] rounded-[4px] px-3 py-1.5 flex items-center gap-2.5 text-[12px] italic text-[#5F7693]">
+                                ${roleIcon(section.code, 'w-4 h-4 text-[#83B9EF] shrink-0')}
+                                <span>Belum ada anggota</span>
+                            </div>
+                        ` : section.members.map((member) => `
+                            <div class="border border-[#83B9EF] bg-[#C0DDF9] rounded-[4px] px-3 py-1.5 flex items-center gap-2.5">
+                                ${roleIcon(section.code, 'w-4 h-4 text-[#0773DF] shrink-0')}
+                                <span class="text-[12px] font-medium text-[#181C1F] truncate">
+                                    ${escapeHtml(member.name || member.email || 'Mahasiswa')}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `).join('')}
+
+                <hr class="border-t-2 border-[#0773DF] my-1.5" />
+
+                <!-- Pengaduan Section matching asprak_panel_2 & asprak_panel_3 -->
+                <div class="space-y-1.5">
+                    <h3 class="text-[13px] font-bold text-[#486284]">Pengaduan</h3>
+                    ${teamComplaints.length === 0 ? `
+                        <div class="border border-[#83B9EF] bg-[#C0DDF9] rounded-[5px] min-h-[82px] p-3">
+                            <p class="text-[12px] font-bold text-[#181C1F]">Tidak ada pengaduan</p>
+                        </div>
+                    ` : `
+                        <div class="space-y-2">
+                            ${teamComplaints.map((c) => {
+                                const parsed = parseComplaintText(c.description);
+                                const roleTag = resolveMemberRoleLabel(c.reported?.id);
+                                return `
+                                    <div class="border border-[#83B9EF] bg-[#C0DDF9] rounded-[5px] p-3 space-y-1.5">
+                                        <div class="flex items-start justify-between gap-2">
+                                            <p class="text-[11.5px] font-bold text-[#181C1F] leading-snug">
+                                                ${escapeHtml(roleTag)} - ${escapeHtml(c.reported?.name || '-')} (${escapeHtml(c.reported?.nim || '-')})
+                                            </p>
+                                            ${c.is_reviewed ? '<span class="shrink-0 text-[10px] font-semibold bg-[#DDF3E4] text-[#308242] px-1.5 py-0.5 rounded">Ditinjau</span>' : ''}
+                                        </div>
+                                        <p class="text-[11.5px] text-[#181C1F] leading-snug line-clamp-2">
+                                            ${escapeHtml(parsed.details)}
+                                        </p>
+                                        <div class="flex items-end justify-between gap-2 pt-0.5">
+                                            <span class="text-[11.5px] font-bold text-[#181C1F] truncate">
+                                                ${escapeHtml(parsed.reason)}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                data-action="asprak-open-complaint"
+                                                data-complaint-id="${c.id}"
+                                                aria-label="Lihat Detail Pengaduan"
+                                                class="w-8 h-8 rounded-[5px] bg-white hover:bg-[#EDF5FF] flex items-center justify-center shrink-0 shadow-2xs transition cursor-pointer"
+                                            >
+                                                ${uiIcons.fileText('w-4 h-4 text-[#0773DF]')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `}
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-5 py-3 border-t border-[#83B9EF]/50 flex items-center justify-between gap-2 shrink-0 bg-white">
+                <button
+                    type="button"
+                    data-action="asprak-go-project"
+                    data-team-id="${team.id}"
+                    class="border border-[#0773DF] text-[#0773DF] hover:bg-[#F0F7FF] font-semibold text-[12px] min-h-[38px] sm:min-h-[32px] px-3.5 rounded-[4px] transition cursor-pointer"
+                >
+                    Input Proyek
+                </button>
+
+                <button
+                    type="button"
+                    data-action="close-modal"
+                    class="bg-[#0773DF] hover:bg-[#0561BF] text-white font-semibold text-[12px] min-h-[38px] sm:min-h-[32px] px-4 rounded-[4px] inline-flex items-center gap-1.5 transition cursor-pointer"
+                >
+                    ${uiIcons.check('w-3.5 h-3.5 text-white')}
+                    <span>Selesai</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
 function renderDevSwitcherModal(state) {
     const { users, loading, seeding, notice, error } = state.dev;
-    const studentUsers = (users || []).filter((u) => u.user_role === 'student' || u.user_role === 'admin');
+    const demoUsers = (users || []).filter((u) => ['student', 'assistant', 'admin'].includes(u.user_role));
 
     const presets = [
-        { email: 'mhs.baru@mail.ugm.ac.id', label: 'Mahasiswa Baru (Form Kosong)', tag: 'Fresh' },
-        { email: 'mhs.bypass@mail.ugm.ac.id', label: 'Mahasiswa Bypass (GEMASTIK)', tag: 'Bypass' },
-        { email: 'mhs.uiux1@mail.ugm.ac.id', label: 'Mahasiswa Tim UI/UX (Kelompok)', tag: 'Tim PAD' },
+        { email: 'mhs.uiux1@mail.ugm.ac.id', role: 'student', label: 'Dashboard Mahasiswa (Tim UI/UX)', tag: 'Tim PAD' },
+        { email: 'mhs.baru@mail.ugm.ac.id', role: 'student', label: 'Mahasiswa Baru (Belum Ada Tim)', tag: 'Fresh' },
+        { email: 'mhs.bypass@mail.ugm.ac.id', role: 'student', label: 'Mahasiswa Bypass (GEMASTIK)', tag: 'Bypass' },
+        { email: 'asisten.lab@mail.ugm.ac.id', role: 'assistant', label: 'Asisten Praktikum (Asprak)', tag: 'Asprak' },
     ];
 
     return `
@@ -348,7 +486,7 @@ function renderDevSwitcherModal(state) {
                             type="button"
                             data-action="dev-login"
                             data-email="${escapeHtml(p.email)}"
-                            data-role="student"
+                            data-role="${escapeHtml(p.role)}"
                             ${loading ? 'disabled' : ''}
                             class="w-full text-left border border-[#83B9EF] hover:border-[#0773DF] hover:bg-[#F4F9FF] rounded-[6px] px-3.5 py-2.5 flex items-center justify-between gap-2 transition cursor-pointer"
                         >
@@ -358,17 +496,17 @@ function renderDevSwitcherModal(state) {
                     `).join('')}
                 </div>
 
-                ${studentUsers.length > 0 ? `
+                ${demoUsers.length > 0 ? `
                     <div class="pt-2 border-t border-[#83B9EF]/60 space-y-1.5">
-                        <label class="block text-[11.5px] font-semibold text-[#486284]">Semua Akun Mahasiswa Lokal:</label>
+                        <label class="block text-[11.5px] font-semibold text-[#486284]">Semua Akun Lokal:</label>
                         <div class="flex gap-2">
                             <select
                                 id="dev-user-select"
                                 class="flex-1 min-h-[40px] border border-[#83B9EF] rounded-[5px] px-3 text-[12px] text-[#181C1F] bg-white focus:outline-none focus:border-[#0773DF]"
                             >
-                                ${studentUsers.map((u) => `
+                                ${demoUsers.map((u) => `
                                     <option value="${escapeHtml(u.email)}|${escapeHtml(u.user_role)}" ${u.email === state.user?.email ? 'selected' : ''}>
-                                        ${escapeHtml(u.name || u.email)} (${escapeHtml(u.email)})
+                                        ${escapeHtml(u.name || u.email)} (${escapeHtml(u.user_role)})
                                     </option>
                                 `).join('')}
                             </select>
@@ -404,6 +542,9 @@ export function renderModal(state) {
             break;
         case 'team-detail':
             dialogHtml = renderTeamDetailModal(state);
+            break;
+        case 'asprak-team-detail':
+            dialogHtml = renderAsprakTeamDetailModal(state);
             break;
         case 'confirm-complaint':
             dialogHtml = renderConfirmComplaintModal(state);

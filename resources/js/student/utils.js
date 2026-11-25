@@ -111,6 +111,37 @@ export function roleDisplayTag(code, fallbackName = '') {
     }
 }
 
+export function roleTableLabel(code, fallbackName = '') {
+    switch (normalizeRoleCode(code || fallbackName)) {
+        case 'UIUX':
+            return 'UI/UX';
+        case 'PM':
+            return 'Project Manager';
+        case 'FE':
+            return 'Frontend';
+        case 'BE':
+            return 'Backend';
+        default:
+            return fallbackName || code || '-';
+    }
+}
+
+export function parseComplaintText(rawDescription) {
+    const raw = String(rawDescription || '').trim();
+    if (!raw) return { reason: '-', details: '-' };
+
+    const lines = raw.split(/\r?\n/);
+    const firstLine = lines[0]?.trim() || '';
+    if (/^Alasan:\s*/i.test(firstLine)) {
+        const reason = firstLine.replace(/^Alasan:\s*/i, '').trim() || '-';
+        const details = lines.slice(1).join('\n').trim() || reason;
+        return { reason, details };
+    }
+
+    const shortReason = raw.length > 56 ? `${raw.slice(0, 56).trim()}...` : raw;
+    return { reason: shortReason, details: raw };
+}
+
 export function parseNimStatus(nim) {
     const trimmed = String(nim || '').trim();
     if (!trimmed) {

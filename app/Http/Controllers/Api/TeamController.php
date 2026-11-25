@@ -345,6 +345,7 @@ class TeamController extends Controller
                 $existingProject ? Rule::unique('projects', 'project_name')->ignore($existingProject->id) : Rule::unique('projects', 'project_name'),
             ],
             'project_owner' => ['nullable', 'integer', 'exists:users,id'],
+            'project_owner_name' => ['nullable', 'string', 'max:128'],
             'project_associate' => ['nullable', 'string', 'max:64'],
             'project_description' => ['nullable', 'string', 'max:255'],
         ], [
@@ -374,13 +375,30 @@ class TeamController extends Controller
             }
         }
 
+        $manualPoName = trim((string) ($validated['project_owner_name'] ?? ''));
+        $descriptionValue = $validated['project_description'] ?? $existingProject?->project_description;
+
+        if ($request->has('project_owner_name')) {
+            $cleanedLines = collect(preg_split('/\r?\n/', (string) ($descriptionValue ?? '')))
+                ->map(fn ($line) => trim((string) $line))
+                ->filter(fn ($line) => $line !== '' && ! str_starts_with(strtoupper($line), 'PO:'))
+                ->values();
+
+            if ($manualPoName !== '') {
+                $cleanedLines->prepend('PO: '.$manualPoName);
+            }
+
+            $joined = $cleanedLines->implode("\n");
+            $descriptionValue = $joined !== '' ? mb_substr($joined, 0, 255) : null;
+        }
+
         $project = Project::updateOrCreate(
             ['project_team' => $team->id],
             [
                 'project_name' => $validated['project_name'],
                 'project_owner' => $ownerId,
                 'project_associate' => $validated['project_associate'] ?? null,
-                'project_description' => $validated['project_description'] ?? null,
+                'project_description' => $descriptionValue,
             ]
         );
 
@@ -395,6 +413,7 @@ class TeamController extends Controller
                 'project_name' => $project->project_name,
                 'project_associate' => $project->project_associate,
                 'project_description' => $project->project_description,
+                'owner_display_name' => $this->extractProjectOwnerDisplayName($project),
                 'owner' => $project->owner ? [
                     'id' => $project->owner->id,
                     'name' => $project->owner->name,
@@ -615,6 +634,7 @@ class TeamController extends Controller
                     'project_name' => $team->project->project_name,
                     'project_associate' => $team->project->project_associate,
                     'project_description' => $team->project->project_description,
+                    'owner_display_name' => $this->extractProjectOwnerDisplayName($team->project),
                     'owner' => $team->project->owner ? [
                         'id' => $team->project->owner->id,
                         'name' => $team->project->owner->name,
@@ -643,5 +663,25 @@ class TeamController extends Controller
                 })->values(),
             ];
         })->values()->all();
+    }
+
+    /**
+     * Extract project owner display name (prefers manual "PO: ..." line in project_description).
+     */
+    protected function extractProjectOwnerDisplayName(?Project $project): ?string
+    {
+        if (! $project) {
+            return null;
+        }
+
+        $desc = (string) ($project->project_description ?? '');
+        if (preg_match('/^PO:\s*(.+)$/mi', $desc, $matches) === 1) {
+            $manualOwner = trim($matches[1]);
+            if ($manualOwner !== '') {
+                return $manualOwner;
+            }
+        }
+
+        return $project->owner?->name;
     }
 }
