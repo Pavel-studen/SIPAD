@@ -151,6 +151,27 @@ export async function fetchComplaints() {
     return res.data;
 }
 
+export async function fetchComplaintDetail(id) {
+    const res = await api.get(`/complaints/${id}`);
+    return res.data;
+}
+
+export async function reviewComplaint(id) {
+    const res = await api.patch(`/complaints/${id}/review`);
+    return res.data;
+}
+
+// --- Asisten Praktikum & Tim Endpoints ---
+export async function fetchTeams() {
+    const res = await api.get('/teams');
+    return res.data;
+}
+
+export async function saveTeamProject(teamId, payload) {
+    const res = await api.post(`/teams/${teamId}/project`, payload);
+    return res.data;
+}
+
 export async function downloadComplaintEvidence(complaintId, filename = 'bukti_pengaduan') {
     const response = await api.get(`/complaints/${complaintId}/evidence`, {
         params: { download: 1 },

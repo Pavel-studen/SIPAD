@@ -274,4 +274,53 @@ export const uiIcons = {
             <path d="M4 17h12"/>
         </svg>
     `,
+    googleG: (className = 'w-4 h-4') => `
+        <svg viewBox="0 0 24 24" class="${className}" aria-hidden="true">
+            <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.54 5.54 0 0 1-2.4 3.63v3.01h3.88c2.27-2.09 3.54-5.17 3.54-8.88Z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.94-2.9l-3.88-3.01c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.71-4.95H1.28v3.11A12 12 0 0 0 12 24Z"/>
+            <path fill="#FBBC05" d="M5.29 14.29A7.18 7.18 0 0 1 4.92 12c0-.8.14-1.57.37-2.29V6.6H1.28A12 12 0 0 0 0 12c0 1.94.46 3.77 1.28 5.4l4.01-3.11Z"/>
+            <path fill="#EA4335" d="M12 4.76c1.76 0 3.34.61 4.59 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.28 6.6l4.01 3.11C6.23 6.87 8.88 4.76 12 4.76Z"/>
+        </svg>
+    `,
+    fileText: (className = 'w-4 h-4 text-[#0773DF]') => `
+        <svg viewBox="0 0 24 24" fill="currentColor" class="${className}" aria-hidden="true">
+            <path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V8h4.5L13 3.5ZM8 11.5v1.6h8v-1.6H8Zm0 3.4v1.6h8v-1.6H8Zm0 3.4v1.6h5v-1.6H8Z"/>
+        </svg>
+    `,
+    downloadTray: (className = 'w-3.5 h-3.5 text-[#0773DF]') => `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">
+            <path d="M12 4v11m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+        </svg>
+    `,
+    landingHeroArt: () => `
+        <svg viewBox="0 0 320 320" fill="none" class="w-full h-full" aria-hidden="true">
+            <rect width="320" height="320" rx="20" fill="#E9EFF5"/>
+            <circle cx="80" cy="76" r="36" fill="#C0DDF9" opacity="0.7"/>
+            <circle cx="246" cy="242" r="46" fill="#A2CEF9" opacity="0.5"/>
+            <!-- Main card frame -->
+            <rect x="52" y="72" width="216" height="176" rx="14" fill="#FFFFFF" stroke="#83B9EF" stroke-width="2"/>
+            <rect x="52" y="72" width="216" height="34" rx="14" fill="#0773DF"/>
+            <rect x="52" y="92" width="216" height="14" fill="#0773DF"/>
+            <circle cx="72" cy="89" r="4.5" fill="#FFFFFF" opacity="0.85"/>
+            <circle cx="87" cy="89" r="4.5" fill="#C0DDF9" opacity="0.85"/>
+            <circle cx="102" cy="89" r="4.5" fill="#83B9EF" opacity="0.85"/>
+            <!-- 4 balanced role chips -->
+            <rect x="70" y="122" width="84" height="46" rx="8" fill="#E6F2FF" stroke="#83B9EF" stroke-width="1.5"/>
+            <rect x="82" y="135" width="20" height="20" rx="5" fill="#0773DF"/>
+            <rect x="110" y="138" width="32" height="5" rx="2.5" fill="#486284"/>
+            <rect x="110" y="148" width="22" height="4" rx="2" fill="#8FA2B7"/>
+            <rect x="166" y="122" width="84" height="46" rx="8" fill="#E6F2FF" stroke="#83B9EF" stroke-width="1.5"/>
+            <rect x="178" y="135" width="20" height="20" rx="5" fill="#045DDA"/>
+            <rect x="206" y="138" width="32" height="5" rx="2.5" fill="#486284"/>
+            <rect x="206" y="148" width="22" height="4" rx="2" fill="#8FA2B7"/>
+            <rect x="70" y="180" width="84" height="46" rx="8" fill="#E6F2FF" stroke="#83B9EF" stroke-width="1.5"/>
+            <rect x="82" y="193" width="20" height="20" rx="5" fill="#308242"/>
+            <rect x="110" y="196" width="32" height="5" rx="2.5" fill="#486284"/>
+            <rect x="110" y="206" width="22" height="4" rx="2" fill="#8FA2B7"/>
+            <rect x="166" y="180" width="84" height="46" rx="8" fill="#E6F2FF" stroke="#83B9EF" stroke-width="1.5"/>
+            <rect x="178" y="193" width="20" height="20" rx="5" fill="#0773DF"/>
+            <rect x="206" y="196" width="32" height="5" rx="2.5" fill="#486284"/>
+            <rect x="206" y="206" width="22" height="4" rx="2" fill="#8FA2B7"/>
+        </svg>
+    `,
 };

@@ -9,12 +9,17 @@ import { escapeHtml, roleDisplayTag } from '../utils.js';
 
 function getHeaderIdentity(state) {
     const user = state.user;
-    if (!user) return { name: 'Mahasiswa', subtitle: 'Akun', nim: '-' };
+    if (!user) return { name: 'Pengguna', label: 'Akun' };
 
-    const name = user.name || 'Nama Mahasiswa';
+    const name = user.name || 'Nama Pengguna';
+    const userRole = String(user.user_role || user.role || 'student').toLowerCase();
+
+    if (userRole === 'assistant') {
+        return { name, label: user.role_label || 'Asisten Praktikum' };
+    }
+
     const profile = user.student_profile;
-    const nim = state.profiling.form.nim || profile?.nim || 'Belum isi NIM';
-
+    const nim = state.profiling.form.nim || profile?.nim || '';
     const myTeamRole = state.myTeam?.data?.final_role;
     const role1Id = state.profiling.form.role_1_id || profile?.role_1_id;
     const matchedRole = state.profiling.roles.find((r) => Number(r.id) === Number(role1Id));
@@ -24,17 +29,62 @@ function getHeaderIdentity(state) {
             ? roleDisplayTag(matchedRole.code, matchedRole.name)
             : user.role_label || 'Mahasiswa';
 
-    return { name, subtitle: roleTag, nim };
+    return {
+        name,
+        label: nim ? `${roleTag} - ${nim}` : roleTag,
+    };
 }
 
 export function renderHeader(state) {
     const isLocal = Boolean(window.__SIPAD_CONFIG__?.isLocal);
-    const { name, subtitle, nim } = getHeaderIdentity(state);
+    const { name, label } = getHeaderIdentity(state);
+    const userRole = String(state.user?.user_role || state.user?.role || 'student').toLowerCase();
+    const isAssistant = userRole === 'assistant';
     const avatarUrl = state.profiling.avatarPreview || state.user?.avatar_link;
 
     const avatarHtml = avatarUrl
         ? `<img src="${escapeHtml(avatarUrl)}" alt="Foto profil" class="w-full h-full object-cover" />`
         : `<div class="w-full h-full flex items-center justify-center bg-white text-[#0773DF]">${uiIcons.userOutline('w-5 h-5')}</div>`;
+
+    const roleMenuRows = isAssistant
+        ? `
+            <button
+                type="button"
+                data-action="nav-tab"
+                data-tab="asprak-dashboard"
+                class="w-full px-3.5 py-2.5 flex items-center justify-between text-[13px] font-medium text-[#486284] hover:bg-[#F0F7FF] transition border-b border-[#83B9EF]/70 min-h-[42px] cursor-pointer"
+            >
+                ${uiIcons.userOutline('w-4 h-4 text-[#0773DF]')}
+                <span>Daftar Tim</span>
+            </button>
+            <button
+                type="button"
+                data-action="asprak-go-project"
+                class="w-full px-3.5 py-2.5 flex items-center justify-between text-[13px] font-medium text-[#486284] hover:bg-[#F0F7FF] transition border-b border-[#83B9EF]/70 min-h-[42px] cursor-pointer"
+            >
+                ${uiIcons.docEdit('w-4 h-4 text-[#0773DF]')}
+                <span>Input Proyek</span>
+            </button>
+        `
+        : `
+            <button
+                type="button"
+                data-action="nav-tab"
+                data-tab="dashboard"
+                class="w-full px-3.5 py-2.5 flex items-center justify-between text-[13px] font-medium text-[#486284] hover:bg-[#F0F7FF] transition border-b border-[#83B9EF]/70 min-h-[42px] cursor-pointer"
+            >
+                ${uiIcons.projectTree('w-4 h-4 text-[#0773DF]')}
+                <span>Dashboard</span>
+            </button>
+            <button
+                type="button"
+                data-action="go-profile"
+                class="w-full px-3.5 py-2.5 flex items-center justify-between text-[13px] font-medium text-[#486284] hover:bg-[#F0F7FF] transition border-b border-[#83B9EF]/70 min-h-[42px] cursor-pointer"
+            >
+                ${uiIcons.userOutline('w-4 h-4 text-[#0773DF]')}
+                <span>Profile</span>
+            </button>
+        `;
 
     const dropdownHtml = state.profileDropdownOpen
         ? `
@@ -44,16 +94,9 @@ export function renderHeader(state) {
         >
             <div class="sm:hidden px-3.5 py-2.5 bg-[#F4F8FD] border-b border-[#83B9EF]/70">
                 <p class="font-semibold text-[12px] text-[#486284] truncate">${escapeHtml(name)}</p>
-                <p class="font-mono text-[10.5px] text-[#5F7693] truncate">${escapeHtml(subtitle)} - ${escapeHtml(nim)}</p>
+                <p class="font-mono text-[10.5px] text-[#5F7693] truncate">${escapeHtml(label)}</p>
             </div>
-            <button
-                type="button"
-                data-action="go-profile"
-                class="w-full px-3.5 py-2.5 flex items-center justify-between text-[13px] font-medium text-[#486284] hover:bg-[#F0F7FF] transition border-b border-[#83B9EF]/70 min-h-[42px] cursor-pointer"
-            >
-                ${uiIcons.userOutline('w-4 h-4 text-[#0773DF]')}
-                <span>Profile</span>
-            </button>
+            ${roleMenuRows}
             <button
                 type="button"
                 data-action="logout"
@@ -81,10 +124,9 @@ export function renderHeader(state) {
             <div class="max-w-[1280px] mx-auto h-full px-4 sm:px-8 flex items-center justify-between gap-3">
                 <button
                     type="button"
-                    data-action="nav-tab"
-                    data-tab="pilih-peran"
+                    data-action="nav-home"
                     class="inline-flex items-center gap-2 px-3 py-1.5 rounded-[3px] border border-white/75 bg-white/15 hover:bg-white/25 transition cursor-pointer shrink-0"
-                    title="Beranda SIPAD"
+                    title="Dashboard SIPAD"
                 >
                     <span class="font-mono font-bold text-[14px] sm:text-[16px] tracking-[0.16em] text-white">SIPAD</span>
                 </button>
@@ -97,7 +139,7 @@ export function renderHeader(state) {
                         class="flex items-center gap-2.5 sm:gap-3.5 py-1.5 pl-2 pr-1 rounded-full hover:bg-white/10 transition min-h-[44px] cursor-pointer"
                     >
                         <span class="hidden sm:inline font-mono text-[12px] md:text-[13px] font-medium text-white truncate max-w-[300px] md:max-w-[460px]">
-                            ${escapeHtml(name)} (${escapeHtml(subtitle)} - ${escapeHtml(nim)})
+                            ${escapeHtml(name)} (${escapeHtml(label)})
                         </span>
                         <span class="sm:hidden font-mono text-[11.5px] font-medium text-white truncate max-w-[135px]">
                             ${escapeHtml(name)}
@@ -146,7 +188,12 @@ export function renderDecorativeFlowers() {
     `;
 }
 
-export function renderBottomNav(activeTab) {
+export function renderBottomNav(activeTab, user = null) {
+    const userRole = String(user?.user_role || user?.role || 'student').toLowerCase();
+    if (userRole === 'assistant' || activeTab.startsWith('asprak-')) {
+        return '';
+    }
+
     const items = [
         { id: 'pilih-peran', label: 'Pilih Peran' },
         { id: 'hasil-role', label: 'Hasil Role' },
