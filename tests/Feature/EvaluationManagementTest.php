@@ -60,12 +60,23 @@ class EvaluationManagementTest extends TestCase
     }
 
     /**
-     * Test practitioner can access read and note endpoints, but NOT override, reset, or lock-all.
+     * Test practitioner can access read, note, override, and reset endpoints,
+     * while lock-all and unlock-all remain restricted to Lecturer/Admin.
      */
     public function test_practitioner_access_restrictions(): void
     {
         $practitioner = User::factory()->practitioner()->create();
         $student = User::factory()->student()->create();
+        $rolePm = Role::where('code', 'PM')->firstOrFail();
+        $roleBe = Role::where('code', 'BE')->firstOrFail();
+
+        StudentRoleEvaluation::create([
+            'user_id' => $student->id,
+            'recommended_role_id' => $rolePm->id,
+            'recommended_score' => 82.0,
+            'final_role_id' => $rolePm->id,
+            'is_locked' => false,
+        ]);
 
         Sanctum::actingAs($practitioner);
 
@@ -73,10 +84,10 @@ class EvaluationManagementTest extends TestCase
         $this->getJson('/api/evaluations')->assertStatus(200);
         $this->getJson("/api/evaluations/{$student->id}")->assertStatus(200);
         $this->patchJson("/api/evaluations/{$student->id}/note", ['note' => 'Portofolio bagus'])->assertStatus(200);
+        $this->patchJson("/api/evaluations/{$student->id}/override", ['final_role_id' => $roleBe->id])->assertStatus(200);
+        $this->postJson("/api/evaluations/{$student->id}/reset")->assertStatus(200);
 
-        // Forbidden for practitioner
-        $this->patchJson("/api/evaluations/{$student->id}/override", ['final_role_id' => 1])->assertStatus(403);
-        $this->postJson("/api/evaluations/{$student->id}/reset")->assertStatus(403);
+        // Forbidden for practitioner (lecturer/admin locking only)
         $this->postJson('/api/evaluations/lock-all')->assertStatus(403);
         $this->postJson('/api/evaluations/unlock-all')->assertStatus(403);
     }

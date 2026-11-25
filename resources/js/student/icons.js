@@ -323,4 +323,111 @@ export const uiIcons = {
             <rect x="206" y="206" width="22" height="4" rx="2" fill="#8FA2B7"/>
         </svg>
     `,
+    trash: (className = 'w-4 h-4 text-[#308242]') => `
+        <svg viewBox="0 0 24 24" fill="currentColor" class="${className}" aria-hidden="true">
+            <path d="M9 3h6a1 1 0 0 1 1 1v1h4v2h-1.2l-1.1 13a2 2 0 0 1-2 1.8H8.3a2 2 0 0 1-2-1.8L5.2 7H4V5h4V4a1 1 0 0 1 1-1Zm1 6v8h1.8V9H10Zm2.2 0v8H14V9h-1.8Z"/>
+        </svg>
+    `,
+    dice: (className = 'w-4 h-4 text-[#486284]') => `
+        <svg viewBox="0 0 24 24" fill="currentColor" class="${className}" aria-hidden="true">
+            <path d="M4.5 4h7A2.5 2.5 0 0 1 14 6.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 13.5v-7A2.5 2.5 0 0 1 4.5 4ZM6 7.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm4 3a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm-4 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm9.5-2.5H20a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-7.5a2 2 0 0 1-2-2V17h2.5a3.5 3.5 0 0 0 3.5-3.5V8Zm2.2 4.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/>
+        </svg>
+    `,
+    search: (className = 'w-4 h-4 text-[#5F7693]') => `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/>
+            <path d="m20 20-3.5-3.5"/>
+        </svg>
+    `,
+    externalLink: (className = 'w-3.5 h-3.5 text-[#5F7693]') => `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">
+            <path d="M14 4h6v6"/>
+            <path d="M10 14 20 4"/>
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+        </svg>
+    `,
+    linkChain: (className = 'w-4 h-4 text-[#308242]') => `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+    `,
+    unlockOpen: (className = 'w-4 h-4 text-[#308242]') => `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">
+            <rect x="4" y="11" width="16" height="9" rx="2"/>
+            <path d="M8 11V7a4 4 0 0 1 7.6-1.7"/>
+        </svg>
+    `,
+    chevronLeft: (className = 'w-3.5 h-3.5') => `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">
+            <path d="m15 6-6 6 6 6"/>
+        </svg>
+    `,
+    chevronRight: (className = 'w-3.5 h-3.5') => `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">
+            <path d="m9 6 6 6-6 6"/>
+        </svg>
+    `,
+    closeX: (className = 'w-3.5 h-3.5') => `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+    `,
 };
+
+export function renderPerspectiveGridLeft() {
+    const vLines = [0, 0.25, 0.48, 0.68, 0.85, 1].map((t) => {
+        const x = Math.round(t * 210);
+        return `<line x1="${x}" y1="${Math.round(t * 90)}" x2="${x}" y2="${Math.round(900 - t * 90)}" />`;
+    }).join('');
+    const hLines = Array.from({ length: 13 }, (_, i) => {
+        const yLeft = i * 75;
+        const yRight = 90 + (i / 12) * 720;
+        return `<line x1="0" y1="${yLeft}" x2="215" y2="${Math.round(yRight)}" />`;
+    }).join('');
+
+    return `
+        <svg viewBox="0 0 220 900" preserveAspectRatio="none" class="w-full h-full" aria-hidden="true">
+            <defs>
+                <linearGradient id="sipadGridFadeL" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#374151" stop-opacity="0.48" />
+                    <stop offset="68%" stop-color="#4B5563" stop-opacity="0.22" />
+                    <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+                </linearGradient>
+            </defs>
+            <g stroke="url(#sipadGridFadeL)" stroke-width="1">
+                ${vLines}
+                ${hLines}
+            </g>
+        </svg>
+    `;
+}
+
+export function renderPerspectiveGridRight() {
+    const vLines = [0, 0.15, 0.32, 0.52, 0.75, 1].map((t) => {
+        const x = Math.round(t * 215);
+        const inset = Math.round((1 - t) * 90);
+        return `<line x1="${x}" y1="${inset}" x2="${x}" y2="${900 - inset}" />`;
+    }).join('');
+    const hLines = Array.from({ length: 13 }, (_, i) => {
+        const yLeft = 90 + (i / 12) * 720;
+        const yRight = i * 75;
+        return `<line x1="5" y1="${Math.round(yLeft)}" x2="220" y2="${yRight}" />`;
+    }).join('');
+
+    return `
+        <svg viewBox="0 0 220 900" preserveAspectRatio="none" class="w-full h-full" aria-hidden="true">
+            <defs>
+                <linearGradient id="sipadGridFadeR" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0" />
+                    <stop offset="32%" stop-color="#4B5563" stop-opacity="0.22" />
+                    <stop offset="100%" stop-color="#374151" stop-opacity="0.48" />
+                </linearGradient>
+            </defs>
+            <g stroke="url(#sipadGridFadeR)" stroke-width="1">
+                ${vLines}
+                ${hLines}
+            </g>
+        </svg>
+    `;
+}

@@ -78,36 +78,57 @@ export function renderAuthScreen(state) {
 
     const isLocal = Boolean(window.__SIPAD_CONFIG__?.isLocal);
     const { users, loading, seeding, notice, error } = state.dev;
-    const demoUsers = (users || []).filter((u) => ['student', 'assistant', 'admin'].includes(u.user_role));
+    const demoUsers = (users || []).filter((u) => ['student', 'assistant', 'practitioner', 'lecturer', 'admin'].includes(u.user_role));
 
     const presets = [
+        {
+            email: 'master.admin@mail.ugm.ac.id',
+            role: 'admin',
+            label: 'Master Admin (UI_MASTER_ADMIN)',
+            hint: 'Inisiasi email dosen pengampu & kelola hak akses admin',
+            badge: 'Master Admin',
+        },
+        {
+            email: 'dosen.pengampu@mail.ugm.ac.id',
+            role: 'lecturer',
+            label: 'Admin Dosen (UI_DOSEN)',
+            hint: 'Monitoring, User & Assign Asprak, Bypass GEMASTIK/LIDM, Aduan',
+            badge: 'Dosen',
+        },
+        {
+            email: 'praktisi.industri@mail.ugm.ac.id',
+            role: 'practitioner',
+            label: 'Praktisi Industri (UI_ASISTEN_PRAKTIKUM_MANAGE)',
+            hint: 'Periksa portofolio & skillset, Manual Override, Aduan, Proyek',
+            badge: 'Praktisi',
+        },
+        {
+            email: 'asisten.lab@mail.ugm.ac.id',
+            role: 'assistant',
+            label: 'Asisten Praktikum (UI_ASISTEN_PRAKTIKUM)',
+            hint: 'Daftar tim bimbingan, tinjau aduan tim, & input proyek',
+            badge: 'Asprak',
+        },
         {
             email: 'mhs.uiux1@mail.ugm.ac.id',
             role: 'student',
             label: 'Dashboard Mahasiswa (Sudah Ada Tim)',
-            hint: 'Untuk uji UI_DASHBOARD_MAHASISWA, Kartu Role, & Pengaduan',
+            hint: 'UI_DASHBOARD_MAHASISWA, Kartu Role, & Pengaduan',
             badge: 'Tim PAD',
         },
         {
             email: 'mhs.baru@mail.ugm.ac.id',
             role: 'student',
             label: 'Mahasiswa Baru (Belum Ada Tim)',
-            hint: 'Untuk uji Dashboard Belum Ada Tim, Profile, & Skillset Form',
+            hint: 'Dashboard Belum Ada Tim, Profile, & Skillset Form',
             badge: 'Fresh',
         },
         {
             email: 'mhs.bypass@mail.ugm.ac.id',
             role: 'student',
             label: 'Mahasiswa Bypass (GEMASTIK)',
-            hint: 'Untuk uji cabang "Gabisa ambil role kedua :("',
+            hint: 'Cabang "Gabisa ambil role kedua :("',
             badge: 'Bypass',
-        },
-        {
-            email: 'asisten.lab@mail.ugm.ac.id',
-            role: 'assistant',
-            label: 'Asisten Praktikum (Asprak)',
-            hint: 'Untuk uji UI_ASISTEN_PRAKTIKUM, Pengaduan, & Input Proyek',
-            badge: 'Asprak',
         },
     ];
 

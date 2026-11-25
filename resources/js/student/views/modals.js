@@ -1,6 +1,9 @@
 import { roleIcon, uiIcons } from '../icons.js';
 import {
     escapeHtml,
+    formatIsoToIndoDate,
+    formatShortRangeHeader,
+    INDONESIAN_MONTHS,
     normalizeRoleCode,
     parseComplaintText,
     roleDisplayTag,
@@ -440,13 +443,16 @@ function renderAsprakTeamDetailModal(state) {
 
 function renderDevSwitcherModal(state) {
     const { users, loading, seeding, notice, error } = state.dev;
-    const demoUsers = (users || []).filter((u) => ['student', 'assistant', 'admin'].includes(u.user_role));
+    const demoUsers = (users || []).filter((u) => ['student', 'assistant', 'practitioner', 'lecturer', 'admin'].includes(u.user_role));
 
     const presets = [
+        { email: 'master.admin@mail.ugm.ac.id', role: 'admin', label: 'Master Admin (UI_MASTER_ADMIN)', tag: 'Master Admin' },
+        { email: 'dosen.pengampu@mail.ugm.ac.id', role: 'lecturer', label: 'Admin Dosen (UI_DOSEN)', tag: 'Dosen' },
+        { email: 'praktisi.industri@mail.ugm.ac.id', role: 'practitioner', label: 'Praktisi Industri (UI_ASISTEN_PRAKTIKUM_MANAGE)', tag: 'Praktisi' },
+        { email: 'asisten.lab@mail.ugm.ac.id', role: 'assistant', label: 'Asisten Praktikum (Asprak)', tag: 'Asprak' },
         { email: 'mhs.uiux1@mail.ugm.ac.id', role: 'student', label: 'Dashboard Mahasiswa (Tim UI/UX)', tag: 'Tim PAD' },
         { email: 'mhs.baru@mail.ugm.ac.id', role: 'student', label: 'Mahasiswa Baru (Belum Ada Tim)', tag: 'Fresh' },
         { email: 'mhs.bypass@mail.ugm.ac.id', role: 'student', label: 'Mahasiswa Bypass (GEMASTIK)', tag: 'Bypass' },
-        { email: 'asisten.lab@mail.ugm.ac.id', role: 'assistant', label: 'Asisten Praktikum (Asprak)', tag: 'Asprak' },
     ];
 
     return `
@@ -526,6 +532,470 @@ function renderDevSwitcherModal(state) {
     `;
 }
 
+function renderMasterAdminAddModal(state) {
+    const m = state.masterAdmin;
+    return `
+        <div
+            data-modal-dialog="true"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-madmin-add-title"
+            class="w-full max-w-[460px] bg-white border-[2.5px] border-[#308242] rounded-[12px] shadow-[0_14px_38px_rgba(48,130,66,0.22)] p-6 sm:px-8 sm:py-7 space-y-5 animate-modal-in"
+        >
+            <div class="flex items-center justify-between gap-2">
+                <h2 id="modal-madmin-add-title" class="text-[20px] sm:text-[22px] font-bold text-[#1E293B]">
+                    Input Data
+                </h2>
+                <button type="button" data-action="close-modal" class="text-[#64748B] hover:text-[#308242] text-[22px] leading-none px-1 cursor-pointer">&times;</button>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label for="madmin-name-input" class="sr-only">Nama Dosen</label>
+                    <input
+                        id="madmin-name-input"
+                        type="text"
+                        data-input="madmin-name"
+                        value="${escapeHtml(m.form.name || '')}"
+                        placeholder="Nama Dosen"
+                        class="w-full min-h-[42px] px-3.5 border-[1.5px] border-[#8DD99D] focus:border-[#308242] rounded-[5px] text-[16px] sm:text-[13.5px] text-[#1E293B] placeholder:text-[#94A3B8] focus:outline-none"
+                    />
+                </div>
+                <div>
+                    <label for="madmin-email-input" class="sr-only">Email Dosen</label>
+                    <input
+                        id="madmin-email-input"
+                        type="email"
+                        data-input="madmin-email"
+                        value="${escapeHtml(m.form.email || '')}"
+                        placeholder="Email Dosen (contoh: dosen@mail.ugm.ac.id)"
+                        class="w-full min-h-[42px] px-3.5 border-[1.5px] border-[#8DD99D] focus:border-[#308242] rounded-[5px] text-[16px] sm:text-[13.5px] text-[#1E293B] placeholder:text-[#94A3B8] focus:outline-none"
+                    />
+                </div>
+                <div>
+                    <label for="madmin-nip-input" class="sr-only">NIP Dosen</label>
+                    <input
+                        id="madmin-nip-input"
+                        type="text"
+                        data-input="madmin-nip"
+                        value="${escapeHtml(m.form.nip || '')}"
+                        placeholder="NIP Dosen"
+                        class="w-full min-h-[42px] px-3.5 border-[1.5px] border-[#8DD99D] focus:border-[#308242] rounded-[5px] text-[16px] sm:text-[13.5px] text-[#1E293B] placeholder:text-[#94A3B8] focus:outline-none"
+                    />
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-1">
+                <button
+                    type="button"
+                    data-action="madmin-submit-add"
+                    ${m.submitting ? 'disabled' : ''}
+                    class="inline-flex items-center justify-center gap-2 bg-[#308242] hover:bg-[#256834] text-white font-semibold text-[13.5px] px-5 min-h-[40px] rounded-[5px] shadow-xs transition cursor-pointer disabled:opacity-60"
+                >
+                    ${uiIcons.check('w-4 h-4 text-white')}
+                    <span>${m.submitting ? 'Menyimpan...' : 'Terima'}</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderMasterAdminRevokeModal(modal, state) {
+    const busy = Boolean(state.masterAdmin.deletingId);
+    return `
+        <div
+            data-modal-dialog="true"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-madmin-revoke-title"
+            class="w-full max-w-[490px] bg-white border-[2.5px] border-[#308242] rounded-[12px] shadow-[0_14px_38px_rgba(48,130,66,0.22)] p-6 sm:px-9 sm:py-8 text-center space-y-5 animate-modal-in"
+        >
+            <div class="space-y-2">
+                <h2 id="modal-madmin-revoke-title" class="text-[20px] sm:text-[23px] font-bold text-[#181C1F]">
+                    Cabut Hak Akses?
+                </h2>
+                <p class="text-[13.5px] sm:text-[15px] text-[#486284]">
+                    Apakah anda yakin untuk menghilangkan hak akses admin${modal.userName ? ` (${escapeHtml(modal.userName)})` : ''}?
+                </p>
+            </div>
+
+            <div class="flex items-center justify-center gap-4 sm:gap-8 pt-1">
+                <button
+                    type="button"
+                    data-action="close-modal"
+                    class="flex-1 sm:flex-none sm:min-w-[140px] min-h-[42px] px-4 border-[1.5px] border-[#8DD99D] hover:border-[#308242] hover:bg-[#F3FBF5] text-[#486284] font-medium text-[13.5px] rounded-[5px] transition cursor-pointer"
+                >
+                    Tidak
+                </button>
+                <button
+                    type="button"
+                    data-action="madmin-confirm-delete"
+                    data-user-id="${modal.userId}"
+                    ${busy ? 'disabled' : ''}
+                    class="flex-1 sm:flex-none sm:min-w-[140px] min-h-[42px] px-4 bg-[#308242] hover:bg-[#256834] text-white font-semibold text-[13.5px] rounded-[5px] transition shadow-xs cursor-pointer disabled:opacity-60"
+                >
+                    ${busy ? 'Memproses...' : 'Iya'}
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderGreenAlertModal(modal) {
+    const details = Array.isArray(modal.details) && modal.details.length > 0
+        ? `
+            <ul class="text-left bg-[#F0FAF2] border border-[#8DD99D] rounded-[6px] px-3.5 py-2.5 text-[12px] text-[#486284] space-y-1">
+                ${modal.details.map((d) => `<li>• ${escapeHtml(d)}</li>`).join('')}
+            </ul>
+        `
+        : '';
+
+    return `
+        <div
+            data-modal-dialog="true"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-green-alert-title"
+            class="w-full max-w-[490px] bg-white border-[2.5px] border-[#308242] rounded-[12px] shadow-[0_14px_38px_rgba(48,130,66,0.22)] p-6 sm:px-9 sm:py-8 text-center space-y-4 animate-modal-in"
+        >
+            <div class="flex justify-center">
+                ${uiIcons.exclamationCircle('w-12 h-12 sm:w-14 sm:h-14 text-[#308242]')}
+            </div>
+
+            <div class="space-y-1.5">
+                <h2 id="modal-green-alert-title" class="text-[19px] sm:text-[22px] font-bold text-[#486284]">
+                    ${escapeHtml(modal.title || 'Perhatian')}
+                </h2>
+                <p class="text-[13.5px] sm:text-[15px] text-[#5F7693]">
+                    ${escapeHtml(modal.subtitle || '')}
+                </p>
+            </div>
+
+            ${details}
+
+            <div class="pt-1">
+                <button
+                    type="button"
+                    data-action="close-modal"
+                    ${modal.reopenModal ? `data-reopen-modal="${escapeHtml(modal.reopenModal)}"` : ''}
+                    class="min-w-[130px] min-h-[42px] px-6 bg-[#308242] hover:bg-[#256834] text-white font-semibold text-[13.5px] sm:text-[14px] rounded-[5px] transition shadow-xs cursor-pointer"
+                >
+                    ${escapeHtml(modal.buttonLabel || 'Oke')}
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderDosenConfirmModal(kind, busy) {
+    const isAutoGroup = kind === 'autogroup';
+    const title = isAutoGroup ? 'Konfirmasi Pengacakan Tim' : 'Konfirmasi Kunci Tim';
+    const subtitle = isAutoGroup
+        ? 'Apakah Anda yakin ingin melakukan pengacakan tim?'
+        : 'Apakah Anda yakin ingin mengunci tim di atas?';
+    const confirmAction = isAutoGroup ? 'dosen-confirm-autogroup' : 'dosen-confirm-bypass';
+    const iconHtml = isAutoGroup
+        ? uiIcons.dice('w-7 h-7 text-[#308242]')
+        : uiIcons.lockClosed('w-7 h-7 text-[#308242]');
+
+    return `
+        <div
+            data-modal-dialog="true"
+            role="dialog"
+            aria-modal="true"
+            class="w-full max-w-[460px] bg-white border-[2.5px] border-[#308242] rounded-[12px] shadow-[0_14px_38px_rgba(48,130,66,0.22)] p-6 sm:px-8 sm:py-7 text-center space-y-4 animate-modal-in"
+        >
+            <div class="mx-auto w-14 h-14 rounded-full bg-[#C5E9CD] flex items-center justify-center">
+                ${iconHtml}
+            </div>
+            <div class="space-y-1.5">
+                <h2 class="text-[19px] sm:text-[21px] font-bold text-[#486284]">${title}</h2>
+                <p class="text-[13.5px] text-[#5F7693]">${subtitle}</p>
+            </div>
+            <div class="flex items-center justify-center gap-4 pt-1">
+                <button
+                    type="button"
+                    data-action="close-modal"
+                    class="min-w-[100px] min-h-[40px] px-4 border border-[#8DD99D] hover:border-[#308242] text-[#486284] font-semibold text-[13px] rounded-[5px] transition cursor-pointer"
+                >
+                    Tidak
+                </button>
+                <button
+                    type="button"
+                    data-action="${confirmAction}"
+                    ${busy ? 'disabled' : ''}
+                    class="min-w-[100px] min-h-[40px] px-5 bg-[#308242] hover:bg-[#256834] text-white font-semibold text-[13px] rounded-[5px] transition cursor-pointer disabled:opacity-60"
+                >
+                    ${busy ? 'Proses...' : 'Iya'}
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderDosenCalendarModal(state) {
+    const cm = state.dosen.calendarModal;
+    if (!cm) return '';
+
+    const year = Number(cm.viewYear);
+    const month = Number(cm.viewMonth); // 0-indexed
+    const isRange = cm.kind === 'registration';
+    const hasExisting = Boolean(cm.initialHadValue);
+    const title = hasExisting ? 'Ubah Jadwal' : 'Tambah Jadwal';
+    const subtitle = isRange
+        ? (cm.startIso
+            ? `Rentang jadwal: ${formatShortRangeHeader(cm.startIso, cm.endIso)}`
+            : 'Pilih tanggal mulai dan tanggal selesai pada kalender.')
+        : (cm.startIso
+            ? `Tanggal rilis: ${formatIsoToIndoDate(cm.startIso)}`
+            : 'Pilih tanggal rilis tim PAD pada kalender.');
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    const jsDay = firstDayOfMonth.getDay(); // 0=Sun..6=Sat
+    const mondayOffset = jsDay === 0 ? 6 : jsDay - 1;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const toIso = (y, mZero, d) =>
+        `${y}-${String(mZero + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+    const cells = [];
+    for (let i = 0; i < mondayOffset; i++) {
+        cells.push('<div></div>');
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+        const iso = toIso(year, month, day);
+        const isStart = cm.startIso === iso;
+        const isEnd = isRange && cm.endIso === iso;
+        const inBetween = isRange && cm.startIso && cm.endIso && iso > cm.startIso && iso < cm.endIso;
+
+        let cls = 'border border-[#72C384] bg-white text-[#1E293B] hover:bg-[#E6F5EA]';
+        if (isStart || isEnd) {
+            cls = 'border border-[#308242] bg-[#308242] text-white font-bold';
+        } else if (inBetween) {
+            cls = 'border border-[#8DD99D] bg-[#C5E9CD] text-[#14532D] font-semibold';
+        }
+
+        cells.push(`
+            <button
+                type="button"
+                data-action="dosen-calendar-pick-day"
+                data-iso="${iso}"
+                class="h-9 w-full rounded-[4px] text-[12px] transition cursor-pointer flex items-center justify-center ${cls}"
+            >
+                ${day}
+            </button>
+        `);
+    }
+
+    const trailingCount = (7 - (cells.length % 7)) % 7;
+    for (let i = 1; i <= trailingCount; i++) {
+        cells.push(`<div class="h-9 w-full flex items-center justify-center text-[11.5px] text-[#CBD5E1]">${i}</div>`);
+    }
+
+    const monthOptions = INDONESIAN_MONTHS.map((label, idx) => `
+        <option value="${idx}" ${idx === month ? 'selected' : ''}>${label}</option>
+    `).join('');
+
+    const yearOptions = Array.from({ length: 10 }, (_, idx) => year - 3 + idx).map((y) => `
+        <option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>
+    `).join('');
+
+    return `
+        <div
+            data-modal-dialog="true"
+            role="dialog"
+            aria-modal="true"
+            class="w-full max-w-[460px] bg-white border-[2.5px] border-[#308242] rounded-[12px] shadow-[0_14px_38px_rgba(48,130,66,0.22)] p-5 sm:p-7 space-y-4 animate-modal-in"
+        >
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <h2 class="text-[20px] font-bold text-[#486284]">${title}</h2>
+                    <p class="text-[12px] text-[#5F7693] mt-0.5">${escapeHtml(subtitle)}</p>
+                </div>
+                <button
+                    type="button"
+                    data-action="close-modal"
+                    class="w-7 h-7 rounded-[4px] border border-[#8DD99D] text-[#308242] hover:bg-[#E6F5EA] flex items-center justify-center cursor-pointer shrink-0"
+                >
+                    ${uiIcons.closeX('w-3.5 h-3.5')}
+                </button>
+            </div>
+
+            <div class="border border-[#72C384] rounded-[8px] p-3.5 space-y-3">
+                <div class="flex items-center justify-between gap-2">
+                    <button
+                        type="button"
+                        data-action="dosen-calendar-prev"
+                        aria-label="Bulan Sebelumnya"
+                        class="w-8 h-8 rounded-[4px] border border-[#72C384] text-[#308242] hover:bg-[#E6F5EA] flex items-center justify-center cursor-pointer"
+                    >
+                        ${uiIcons.chevronLeft('w-4 h-4')}
+                    </button>
+
+                    <div class="flex items-center gap-1.5">
+                        <select
+                            data-action="dosen-calendar-month"
+                            class="h-8 px-2 border border-[#72C384] rounded-[4px] text-[13px] font-bold text-[#486284] bg-white focus:outline-none"
+                        >
+                            ${monthOptions}
+                        </select>
+                        <select
+                            data-action="dosen-calendar-year"
+                            class="h-8 px-2 border border-[#72C384] rounded-[4px] text-[13px] font-bold text-[#486284] bg-white focus:outline-none"
+                        >
+                            ${yearOptions}
+                        </select>
+                    </div>
+
+                    <button
+                        type="button"
+                        data-action="dosen-calendar-next"
+                        aria-label="Bulan Berikutnya"
+                        class="w-8 h-8 rounded-[4px] border border-[#72C384] text-[#308242] hover:bg-[#E6F5EA] flex items-center justify-center cursor-pointer"
+                    >
+                        ${uiIcons.chevronRight('w-4 h-4')}
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-7 gap-1.5 text-center text-[11px] font-semibold text-[#5F7693]">
+                    <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span>
+                </div>
+
+                <div class="grid grid-cols-7 gap-1.5">
+                    ${cells.join('')}
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-1">
+                <button
+                    type="button"
+                    data-action="close-modal"
+                    class="min-w-[92px] min-h-[38px] px-4 border border-[#72C384] hover:bg-[#F3FBF5] text-[#486284] font-semibold text-[12.5px] rounded-[5px] cursor-pointer"
+                >
+                    Batal
+                </button>
+                <button
+                    type="button"
+                    data-action="dosen-calendar-save"
+                    ${!cm.startIso || cm.saving ? 'disabled' : ''}
+                    class="min-w-[140px] min-h-[38px] px-4 bg-[#308242] hover:bg-[#256834] text-white font-semibold text-[12.5px] rounded-[5px] shadow-xs cursor-pointer disabled:opacity-55"
+                >
+                    ${cm.saving ? 'Menyimpan...' : (hasExisting ? 'Simpan Perubahan' : 'Simpan Jadwal')}
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderDosenAssignAsprakModal(state) {
+    const d = state.dosen;
+    const am = d.assignModal;
+    const assistants = Array.isArray(d.assistants) ? d.assistants : [];
+    const teams = Array.isArray(d.teams) ? d.teams : [];
+    const selectedTeam = teams.find((t) => Number(t.id) === Number(am.teamId)) || teams[0] || null;
+    const activeTeamId = selectedTeam?.id || am.teamId;
+
+    const assistantOptions = assistants.length > 0
+        ? assistants.map((a) => `
+            <option value="${a.id}" ${Number(am.assistantId) === Number(a.id) ? 'selected' : ''}>
+                ${escapeHtml(a.name || a.email)} (${a.supervised_teams_count || 0} Tim)
+            </option>
+        `).join('')
+        : '<option value="">Belum ada Asisten Praktikum</option>';
+
+    const teamOptions = teams.length > 0
+        ? teams.map((t) => `
+            <option value="${t.id}" ${Number(activeTeamId) === Number(t.id) ? 'selected' : ''}>
+                Kelompok ${t.id}${t.project?.project_name ? ` — ${escapeHtml(t.project.project_name)}` : ''}
+            </option>
+        `).join('')
+        : '<option value="">Belum ada kelompok PAD</option>';
+
+    const members = Array.isArray(selectedTeam?.members) ? selectedTeam.members : [];
+    const memberRows = members.length > 0
+        ? members.map((m) => `
+            <div class="flex items-center gap-2 border border-[#72C384] rounded-[4px] px-3 py-1.5 text-[12px] text-[#486284] bg-white">
+                ${roleIcon(m.role?.code, 'w-4 h-4 text-[#308242] shrink-0')}
+                <span class="truncate font-medium">${escapeHtml(m.name || m.email || '-')}</span>
+                <span class="ml-auto text-[10.5px] font-semibold text-[#308242] shrink-0">${escapeHtml(m.role?.code || '')}</span>
+            </div>
+        `).join('')
+        : '<p class="text-[12px] text-[#94A3B8] italic">Belum ada anggota terdaftar di kelompok ini.</p>';
+
+    return `
+        <div
+            data-modal-dialog="true"
+            role="dialog"
+            aria-modal="true"
+            class="w-full max-w-[460px] bg-white border-[2.5px] border-[#308242] rounded-[12px] shadow-[0_14px_38px_rgba(48,130,66,0.22)] p-5 sm:p-7 space-y-4 animate-modal-in"
+        >
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <h2 class="text-[18px] sm:text-[20px] font-bold text-[#486284]">Assign Asprak – Kelompok</h2>
+                    <p class="text-[11.5px] text-[#5F7693] mt-0.5">Pilih asisten praktikum dan kelompok yang akan didampingi.</p>
+                </div>
+                <button type="button" data-action="close-modal" class="text-[#64748B] hover:text-[#308242] text-[22px] leading-none px-1 cursor-pointer">&times;</button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="space-y-1">
+                    <label for="assign-asprak-select" class="block text-[11px] font-bold text-[#308242]">Asisten Praktikum</label>
+                    <select
+                        id="assign-asprak-select"
+                        data-action="dosen-assign-pick-assistant"
+                        class="w-full min-h-[38px] px-2.5 border border-[#72C384] rounded-[4px] bg-white text-[13px] sm:text-[12px] text-[#1E293B]"
+                    >
+                        ${assistantOptions}
+                    </select>
+                </div>
+
+                <div class="space-y-1">
+                    <label for="assign-team-select" class="block text-[11px] font-bold text-[#308242]">Nama kelompok</label>
+                    <select
+                        id="assign-team-select"
+                        data-action="dosen-assign-pick-team"
+                        class="w-full min-h-[38px] px-2.5 border border-[#72C384] rounded-[4px] bg-white text-[13px] sm:text-[12px] text-[#1E293B]"
+                    >
+                        ${teamOptions}
+                    </select>
+                </div>
+            </div>
+
+            ${selectedTeam ? `
+                <div class="border border-[#72C384] rounded-[6px] p-3.5 space-y-3 bg-[#FAFCFA]">
+                    <p class="text-[12.5px] font-bold text-[#1E293B]">Detail Kelompok ${selectedTeam.id}</p>
+                    <div class="space-y-1.5">
+                        ${memberRows}
+                    </div>
+                    <div class="pt-1 border-t border-[#E2F3E7]">
+                        <p class="text-[11px] font-bold text-[#308242]">Nama Project</p>
+                        <p class="text-[12.5px] font-bold text-[#486284] mt-0.5">
+                            ${escapeHtml(selectedTeam.project?.project_name || 'Belum diisi')}
+                        </p>
+                        ${selectedTeam.project?.project_description ? `
+                            <p class="text-[11px] text-[#5F7693] mt-0.5 line-clamp-2">
+                                ${escapeHtml(selectedTeam.project.project_description)}
+                            </p>
+                        ` : ''}
+                    </div>
+                </div>
+            ` : ''}
+
+            <div class="flex justify-end pt-1">
+                <button
+                    type="button"
+                    data-action="dosen-assign-save"
+                    ${!am.assistantId || !activeTeamId || am.saving ? 'disabled' : ''}
+                    class="inline-flex items-center justify-center gap-2 bg-[#308242] hover:bg-[#256834] text-white font-semibold text-[12.5px] px-5 min-h-[38px] rounded-[5px] shadow-xs cursor-pointer disabled:opacity-55"
+                >
+                    ${uiIcons.check('w-3.5 h-3.5 text-white')}
+                    <span>${am.saving ? 'Menyimpan...' : 'Terima'}</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
 export function renderModal(state) {
     if (!state.modal) return '';
 
@@ -536,6 +1006,27 @@ export function renderModal(state) {
             break;
         case 'alert':
             dialogHtml = renderAlertModal(state.modal);
+            break;
+        case 'green-alert':
+            dialogHtml = renderGreenAlertModal(state.modal);
+            break;
+        case 'madmin-add':
+            dialogHtml = renderMasterAdminAddModal(state);
+            break;
+        case 'madmin-revoke':
+            dialogHtml = renderMasterAdminRevokeModal(state.modal, state);
+            break;
+        case 'dosen-confirm-autogroup':
+            dialogHtml = renderDosenConfirmModal('autogroup', state.dosen.busyAction === 'autogroup');
+            break;
+        case 'dosen-confirm-bypass':
+            dialogHtml = renderDosenConfirmModal('bypass', state.dosen.busyAction === 'bypass');
+            break;
+        case 'dosen-calendar':
+            dialogHtml = renderDosenCalendarModal(state);
+            break;
+        case 'dosen-assign-asprak':
+            dialogHtml = renderDosenAssignAsprakModal(state);
             break;
         case 'role-congrats':
             dialogHtml = renderRoleCongratsModal(state.modal);

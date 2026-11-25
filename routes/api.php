@@ -22,7 +22,8 @@ use Illuminate\Support\Facades\Route;
 $registerRoutes = function () {
     // A. Modul Autentikasi & SSO UGM (Proses 1.0 & 3.0)
     Route::prefix('auth')->as('auth.')->group(function () {
-        Route::get('/google', [AuthController::class, 'googleRedirect'])->name('google.redirect');
+        Route::get('/google/redirect', [AuthController::class, 'googleRedirect'])->name('google.redirect');
+        Route::get('/google', [AuthController::class, 'googleRedirect'])->name('google');
         Route::match(['get', 'post'], '/google/callback', [AuthController::class, 'googleCallback'])->name('google.callback');
 
         Route::middleware('auth:sanctum')->group(function () {
@@ -62,6 +63,11 @@ $registerRoutes = function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy'])
             ->middleware('role:lecturer,admin')
             ->name('users.destroy');
+
+        // 7. Mengubah peran akses pengguna terdaftar secara inline (Dosen, Master Admin)
+        Route::match(['put', 'patch'], '/users/{user}/role', [StakeholderController::class, 'assignRole'])
+            ->middleware('role:lecturer,admin')
+            ->name('users.assign-role');
     });
 
     // C. Modul Konfigurasi Sistem & Master Data Role/Skill (Proses 2.0 — Fase 1)
@@ -85,8 +91,8 @@ $registerRoutes = function () {
         });
     });
 
-    // D. Modul Pendaftaran & Form Profiling Mahasiswa (Proses 3.0 — Fase 2)
-    Route::middleware(['auth:sanctum', 'role:student,admin'])->prefix('student')->as('student.')->group(function () {
+    // D. Modul Pendaftaran & Form Profiling Mahasiswa (Proses 3.0 — Fase 2, khusus Mahasiswa)
+    Route::middleware(['auth:sanctum', 'role:student'])->prefix('student')->as('student.')->group(function () {
         // 1. Cek bypass / toggle role 2 & kembalikan kondisi form beserta master roles/skills
         Route::get('/profiling-config', [StudentProfilingController::class, 'profilingConfig'])->name('profiling-config');
 
@@ -103,9 +109,9 @@ $registerRoutes = function () {
         Route::post('/avatar', [StudentProfilingController::class, 'uploadAvatar'])->name('avatar.upload');
     });
 
-    // E. Modul Evaluasi Skor, Override Dosen & Penguncian Role (Proses 4.0 — Fase 3)
+    // E. Modul Evaluasi Skor, Override Dosen/Praktisi & Penguncian Role (Proses 4.0 — Fase 3)
     Route::middleware('auth:sanctum')->prefix('evaluations')->as('evaluations.')->group(function () {
-        // Akses Dosen & Praktisi
+        // Akses Dosen & Praktisi Industri
         Route::middleware('role:lecturer,practitioner,admin')->group(function () {
             // 1. Rekapitulasi seluruh mahasiswa (support search & filter)
             Route::get('/', [EvaluationController::class, 'index'])->name('index');
@@ -115,21 +121,21 @@ $registerRoutes = function () {
 
             // 3. Simpan atau perbarui catatan evaluasi portofolio / rekomendasi role
             Route::patch('/{userId}/note', [EvaluationController::class, 'updateNote'])->name('note.update');
+
+            // 4. Override final_role_id secara manual oleh Dosen / Praktisi Industri
+            Route::patch('/{userId}/override', [EvaluationController::class, 'override'])->name('override');
+
+            // 5. Reset final_role_id ke recommended_role_id saran sistem awal
+            Route::post('/{userId}/reset', [EvaluationController::class, 'reset'])->name('reset');
         });
 
-        // Akses Khusus Dosen
+        // Akses Khusus Dosen & Master Admin (Locking)
         Route::middleware('role:lecturer,admin')->group(function () {
             // 6. Tombol Lock Final Roles: Mengunci seluruh evaluasi peran mahasiswa
             Route::post('/lock-all', [EvaluationController::class, 'lockAll'])->name('lock-all');
 
             // 7. Tombol Unlock Final Roles: Membuka kunci seluruh evaluasi peran mahasiswa
             Route::post('/unlock-all', [EvaluationController::class, 'unlockAll'])->name('unlock-all');
-
-            // 4. Override final_role_id secara manual oleh dosen
-            Route::patch('/{userId}/override', [EvaluationController::class, 'override'])->name('override');
-
-            // 5. Reset final_role_id ke recommended_role_id saran sistem awal
-            Route::post('/{userId}/reset', [EvaluationController::class, 'reset'])->name('reset');
         });
     });
 
@@ -160,9 +166,9 @@ $registerRoutes = function () {
             ->middleware('role:lecturer,admin')
             ->name('supervisor.assign');
 
-        // 6. Menyimpan atau memperbarui metadata proyek pada tabel project (Dosen, Asprak)
+        // 6. Menyimpan atau memperbarui metadata proyek pada tabel project (Dosen, Praktisi, Asprak)
         Route::match(['post', 'put', 'patch'], '/{teamId}/project', [TeamController::class, 'storeOrUpdateProject'])
-            ->middleware('role:lecturer,assistant,admin')
+            ->middleware('role:lecturer,practitioner,assistant,admin')
             ->name('project.store');
     });
 
@@ -173,14 +179,14 @@ $registerRoutes = function () {
 
     // G. Modul Kotak Pengaduan / Digital Complaint Box (Proses 6.0 — Fase 4b)
     Route::middleware('auth:sanctum')->prefix('complaints')->as('complaints.')->group(function () {
-        // Alias mengambil daftar rekan satu tim untuk dropdown pengaduan (Mahasiswa)
+        // Alias mengambil daftar rekan satu tim untuk dropdown pengaduan (Khusus Mahasiswa)
         Route::get('/teammates', [StudentProfilingController::class, 'teammates'])
-            ->middleware('role:student,admin')
+            ->middleware('role:student')
             ->name('teammates');
 
-        // 1. Mengirim tiket pengaduan anggota tim (Mahasiswa)
+        // 1. Mengirim tiket pengaduan anggota tim (Khusus Mahasiswa)
         Route::post('/', [ComplaintController::class, 'store'])
-            ->middleware('role:student,admin')
+            ->middleware('role:student')
             ->name('store');
 
         // 2. Melihat daftar tiket pengaduan (Dosen, Praktisi, Asprak, Mahasiswa)
@@ -191,9 +197,9 @@ $registerRoutes = function () {
         Route::get('/{id}/evidence', [ComplaintController::class, 'downloadEvidence'])->name('evidence');
         Route::get('/{id}/download', [ComplaintController::class, 'downloadEvidence'])->name('download');
 
-        // 4. Menandai bahwa laporan pengaduan telah ditinjau (Dosen, Asprak)
+        // 4. Menandai bahwa laporan pengaduan telah ditinjau (Dosen, Praktisi, Asprak)
         Route::patch('/{id}/review', [ComplaintController::class, 'review'])
-            ->middleware('role:lecturer,assistant,admin')
+            ->middleware('role:lecturer,practitioner,assistant,admin')
             ->name('review');
     });
 

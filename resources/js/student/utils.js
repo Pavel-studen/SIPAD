@@ -159,6 +159,91 @@ export function formatFileSize(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+export const INDONESIAN_MONTHS = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
+];
+
+export function formatIsoToIndoDate(isoDate) {
+    if (!isoDate) return '';
+    const parts = String(isoDate).split('-').map(Number);
+    if (parts.length !== 3 || parts.some(Number.isNaN)) return String(isoDate);
+    const [year, month, day] = parts;
+    return `${day} ${INDONESIAN_MONTHS[month - 1] || ''} ${year}`.trim();
+}
+
+export function formatIndoDateRange(startIso, endIso) {
+    if (!startIso) return '-';
+    if (!endIso || startIso === endIso) return formatIsoToIndoDate(startIso);
+    const s = String(startIso).split('-').map(Number);
+    const e = String(endIso).split('-').map(Number);
+    if (s.length === 3 && e.length === 3 && !s.some(Number.isNaN) && !e.some(Number.isNaN)) {
+        if (s[0] === e[0] && s[1] === e[1]) {
+            return `${s[2]} ${INDONESIAN_MONTHS[s[1] - 1]} ${s[0]} - ${e[2]} ${INDONESIAN_MONTHS[e[1] - 1]} ${e[0]}`;
+        }
+    }
+    return `${formatIsoToIndoDate(startIso)} - ${formatIsoToIndoDate(endIso)}`;
+}
+
+export function formatShortRangeHeader(startIso, endIso) {
+    if (!startIso) return 'Belum dipilih';
+    if (!endIso || startIso === endIso) return formatIsoToIndoDate(startIso);
+    const s = String(startIso).split('-').map(Number);
+    const e = String(endIso).split('-').map(Number);
+    if (s.length === 3 && e.length === 3 && s[0] === e[0] && s[1] === e[1]) {
+        return `${s[2]}–${e[2]} ${INDONESIAN_MONTHS[e[1] - 1]} ${e[0]}`;
+    }
+    return `${formatIsoToIndoDate(startIso)} – ${formatIsoToIndoDate(endIso)}`;
+}
+
+export function roleCompactCode(code, fallbackName = '') {
+    switch (normalizeRoleCode(code || fallbackName)) {
+        case 'PM':
+            return 'PM';
+        case 'UIUX':
+            return 'UI/UX';
+        case 'FE':
+            return 'FE';
+        case 'BE':
+            return 'BE';
+        default:
+            return String(code || fallbackName || '-');
+    }
+}
+
+export function downloadCsvFile(filename, headers, rows) {
+    const escapeCell = (val) => {
+        const s = String(val ?? '');
+        if (/[",\n\r]/.test(s)) {
+            return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+    };
+    const csvLines = [
+        headers.map(escapeCell).join(','),
+        ...rows.map((r) => r.map(escapeCell).join(',')),
+    ];
+    const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+}
+
 export function formatDateIndo(isoString) {
     if (!isoString) return '-';
     const d = new Date(isoString);
