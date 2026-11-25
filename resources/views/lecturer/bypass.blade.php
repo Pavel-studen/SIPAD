@@ -114,9 +114,9 @@
             </div>
         </section>
         <div class="flex gap-4 mt-12 mb-8">
-            <button class="flex-1 bg-[#308242] text-white font-bold py-3 rounded-md hover:bg-green-700 transition"><a href="{{ route('dosen.control') }}">Kontrol</a></button>
-            <button class="flex-1 bg-[#308242] text-white font-bold py-3 rounded-md hover:bg-green-700 transition"><a href="{{ route('dosen.access') }}">User</a></button>
-            <button class="flex-1 border border-[#308242] text-[#308242] font-bold py-3 rounded-md hover:bg-green-50 transition"><a href="{{ route('dosen.bypass') }}">Bypass</a></button>
+            <button class="flex-1 bg-[#308242] text-white font-bold py-3 rounded-md hover:bg-green-700 transition"><a href="{{ route('lecturer.control') }}">Kontrol</a></button>
+            <button class="flex-1 bg-[#308242] text-white font-bold py-3 rounded-md hover:bg-green-700 transition"><a href="{{ route('lecturer.access') }}">User</a></button>
+            <button class="flex-1 border border-[#308242] text-[#308242] font-bold py-3 rounded-md hover:bg-green-50 transition"><a href="{{ route('lecturer.bypass') }}">Bypass</a></button>
         </div>
     </main>
     <div
@@ -152,7 +152,7 @@
                     Tidak</button>
 
                 <!-- Form Submit Action to Laravel -->
-                <form method="POST" action="{{ route('dosen.kunciTim') }}">
+                <form method="POST" action="{{ route('lecturer.kunciTim') }}">
                     @csrf
                     <!-- Give the team ID if available -->
                     <input type="hidden" name="team_name" :value="form.team_name">

@@ -34,8 +34,9 @@ class PractitionerController extends Controller
 
     public function complaint()
     {
-        $complaintList = Complaint::with('reporter')->latest()->paginate(10);
-        return view('practitioner.complaint', compact('complaintList'));
+        // $complaintList = Complaint::with('reporter')->latest()->paginate(10);
+        // return view('practitioner.complaint', compact('complaintList'));
+        return view('practitioner.complaint');
     }
 
     public function getStudentDetail($id)
@@ -63,5 +64,21 @@ class PractitionerController extends Controller
                 'team_name'     => $profile->team->name ?? 'Belum tergabung tim',
             ]
         ]);
+    }
+
+    public function inputProject()
+    {
+        return view('practitioner.input-project');
+    }
+
+    public function simpanProyek(Request $request)
+    {
+        $request->validate([
+            'nama_proyek'   => 'required',
+            'project_owner' => 'required',
+            'mitra_proyek'  => 'required'
+        ]);
+
+        return back()->with('success', 'Detail proyek berhasil disimpan.');
     }
 }

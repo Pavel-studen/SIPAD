@@ -214,7 +214,6 @@ Route::middleware(['web'])->prefix('lecturer')->name('lecturer.')->group(functio
     Route::post('/access/tambah-email', [LecturerController::class, 'tambahEmail'])->name('tambahEmail');
     Route::post('/access/import-csv', [LecturerController::class, 'importCSV'])->name('importCSV');
     Route::post('/access/hapus-email/{id}', [LecturerController::class, 'hapusEmail'])->name('hapusEmail');
-    Route::post('/access/simpan-proyek', [LecturerController::class, 'simpanProyek'])->name('simpanProyek');
 
     Route::post('/bypass/tambah-anggota', [LecturerController::class, 'tambahAnggota'])->name('tambahAnggota');
     Route::post('/bypass/kunci-tim/{id}', [LecturerController::class, 'kunciTim'])->name('kunciTim');
